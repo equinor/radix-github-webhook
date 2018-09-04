@@ -6,6 +6,8 @@ import (
 	"github.com/ingeknudsen/webhook/handler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	// Force loading of needed authentication library
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
