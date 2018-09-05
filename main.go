@@ -4,7 +4,6 @@ import (
 	"flag"
 	"github.com/Sirupsen/logrus"
 	"github.com/statoil/radix-webhook/handler"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	// Force loading of needed authentication library
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -66,7 +65,7 @@ func defaultKubeConfig() string {
 }
 
 func defaultNamespace() string {
-	return corev1.NamespaceDefault
+	return "radix-static-html-app"
 }
 
 func defaultConfigBranch() string {
