@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/Sirupsen/logrus"
-	"github.com/ingeknudsen/webhook/handler"
+	"github.com/statoil/radix-webhook/handler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	// Force loading of needed authentication library
@@ -22,12 +22,13 @@ func main() {
 		pipelineHandlerConfig handler.Config
 	)
 
-	flag.StringVar(&kubeconfig, "kubeconfig", defaultKubeConfig(), "absolute path to the kubeconfig file")
+	flag.StringVar(&kubeconfig, "kubeconfig", defaultKubeConfig(), "Absolute path to the kubeconfig file")
 	flag.StringVar(&secret, "webhook-secret", defaultSecret(), "Secret defined in web-hook")
 	flag.StringVar(&port, "listener-port", defaultPort(), "The port for which we listen to events on")
-	flag.StringVar(&pipelineHandlerConfig.Namespace, "namespace", defaultNamespace(), "kubernetes namespace")
-	flag.StringVar(&pipelineHandlerConfig.WorkerImage, "worker-image", defaultWorkerImage(), "kubernetes worker image")
-	flag.StringVar(&pipelineHandlerConfig.RadixConfigBranch, "radix-config-branch", defaultConfigBranch(), "branch name to pull radix config from")
+	flag.StringVar(&pipelineHandlerConfig.Namespace, "namespace", defaultNamespace(), "Kubernetes namespace")
+	flag.StringVar(&pipelineHandlerConfig.DockerRegistryPath, "docker-registry", defaultDockerRegistryPath(), "Private docker registry path")
+	flag.StringVar(&pipelineHandlerConfig.WorkerImage, "worker-image", defaultWorkerImage(), "Kubernetes worker image")
+	flag.StringVar(&pipelineHandlerConfig.RadixConfigBranch, "radix-config-branch", defaultConfigBranch(), "Branch name to pull radix config from")
 
 	client, err := getKubernetesClient(kubeconfig)
 	if err != nil {
@@ -72,8 +73,12 @@ func defaultConfigBranch() string {
 	return "master"
 }
 
+func defaultDockerRegistryPath() string {
+	return "radixdev.azurecr.io"
+}
+
 func defaultWorkerImage() string {
-	return "perl"
+	return "pipeline-runner"
 }
 
 func defaultSecret() string {

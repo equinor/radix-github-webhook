@@ -18,9 +18,10 @@ import (
 )
 
 type Config struct {
-	Namespace         string
-	WorkerImage       string
-	RadixConfigBranch string
+	Namespace          string
+	DockerRegistryPath string
+	WorkerImage        string
+	RadixConfigBranch  string
 }
 
 type PipelineController struct {
@@ -40,6 +41,7 @@ func (p *PipelineController) ProcessPushEvent(pushEvent *github.PushEvent, req *
 	jobName := getUniqueJobName(p.config.WorkerImage)
 	job := p.createPipelineJob(jobName, *pushEvent.Repo.SSHURL)
 
+	logrus.Infof("Starting pipeline: %s, %s", jobName, p.config.WorkerImage)
 	job, err := p.kubeclient.BatchV1().Jobs(p.config.Namespace).Create(job)
 	if err != nil {
 		logrus.Fatalf("Start pipeline: %v", err)
@@ -75,6 +77,7 @@ func NewPipelineController(kubeclient *kubernetes.Clientset, config *Config) *Pi
 
 func (p *PipelineController) createPipelineJob(jobName, sshUrl string) *batchv1.Job {
 	gitCloneCommand := fmt.Sprintf("git clone %s -b %s .", sshUrl, p.config.RadixConfigBranch)
+	imageTag := fmt.Sprintf("%s/%s:%s", p.config.DockerRegistryPath, p.config.WorkerImage, "pipe_build")
 
 	backOffLimit := int32(4)
 	defaultMode := int32(256)
@@ -111,9 +114,19 @@ func (p *PipelineController) createPipelineJob(jobName, sshUrl string) *batchv1.
 					},
 					Containers: []corev1.Container{
 						{
-							Name:    "pi",
-							Image:   "perl",
-							Command: []string{"perl", "-Mbignum=bpi", "-wle", "print bpi(2000)"},
+							Name:  p.config.WorkerImage,
+							Image: imageTag,
+							Args: []string{
+								fmt.Sprintf("BRANCH=%s", "master"),
+								fmt.Sprintf("RADIX_FILE_NAME=%s", "/workspace/radixconfig.yaml"),
+								fmt.Sprintf("IMAGE_TAG=%s", ""),
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "build-context",
+									MountPath: "/workspace",
+								},
+							},
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -128,6 +141,12 @@ func (p *PipelineController) createPipelineJob(jobName, sshUrl string) *batchv1.
 									DefaultMode: &defaultMode,
 								},
 							},
+						},
+					},
+					// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: "regcred",
 						},
 					},
 					RestartPolicy: "Never",
