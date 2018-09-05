@@ -77,7 +77,8 @@ func NewPipelineController(kubeclient *kubernetes.Clientset, config *Config) *Pi
 
 func (p *PipelineTrigger) createPipelineJob(jobName, sshUrl string) *batchv1.Job {
 	gitCloneCommand := fmt.Sprintf("git clone %s -b %s .", sshUrl, p.config.RadixConfigBranch)
-	imageTag := fmt.Sprintf("%s/%s:%s", p.config.DockerRegistryPath, p.config.WorkerImage, "pipe_build")
+	imageTag := fmt.Sprintf("%s/%s:%s", p.config.DockerRegistryPath, p.config.WorkerImage, "latest")
+	logrus.Infof("Using image: %s, %s", imageTag)
 
 	backOffLimit := int32(4)
 	defaultMode := int32(256)
