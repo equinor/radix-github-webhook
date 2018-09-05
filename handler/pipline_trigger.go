@@ -24,20 +24,20 @@ type Config struct {
 	RadixConfigBranch  string
 }
 
-type PipelineController struct {
+type PipelineTrigger struct {
 	kubeclient *kubernetes.Clientset
 	config     *Config
 }
 
-func (p *PipelineController) ProcessPingEvent(pingEvent *github.PingEvent, req *http.Request) (string, error) {
+func (p *PipelineTrigger) ProcessPingEvent(pingEvent *github.PingEvent, req *http.Request) (string, error) {
 	return "Ping received and a corresponding radix application was found", nil
 }
 
-func (p *PipelineController) ProcessPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request) error {
+func (p *PipelineTrigger) ProcessPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request) error {
 	return errors.New("Pull request is not supported at this moment")
 }
 
-func (p *PipelineController) ProcessPushEvent(pushEvent *github.PushEvent, req *http.Request) error {
+func (p *PipelineTrigger) ProcessPushEvent(pushEvent *github.PushEvent, req *http.Request) error {
 	jobName := getUniqueJobName(p.config.WorkerImage)
 	job := p.createPipelineJob(jobName, *pushEvent.Repo.SSHURL)
 
@@ -68,14 +68,14 @@ func (p *PipelineController) ProcessPushEvent(pushEvent *github.PushEvent, req *
 	return nil
 }
 
-func NewPipelineController(kubeclient *kubernetes.Clientset, config *Config) *PipelineController {
-	return &PipelineController{
+func NewPipelineController(kubeclient *kubernetes.Clientset, config *Config) *PipelineTrigger {
+	return &PipelineTrigger{
 		kubeclient,
 		config,
 	}
 }
 
-func (p *PipelineController) createPipelineJob(jobName, sshUrl string) *batchv1.Job {
+func (p *PipelineTrigger) createPipelineJob(jobName, sshUrl string) *batchv1.Job {
 	gitCloneCommand := fmt.Sprintf("git clone %s -b %s .", sshUrl, p.config.RadixConfigBranch)
 	imageTag := fmt.Sprintf("%s/%s:%s", p.config.DockerRegistryPath, p.config.WorkerImage, "pipe_build")
 
