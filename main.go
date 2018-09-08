@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
+	radixclient "github.com/statoil/radix-operator/pkg/client/clientset/versioned"
 	"github.com/statoil/radix-webhook/handler"
 	"k8s.io/client-go/kubernetes"
 	// Force loading of needed authentication library
@@ -19,24 +20,19 @@ func main() {
 
 	var (
 		kubeconfig            = fs.String("kubeconfig", defaultKubeConfig(), "Absolute path to the kubeconfig file")
-		secret                = fs.String("webhook-secret", defaultSecret(), "Secret defined in web-hook")
 		port                  = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
 		pipelineHandlerConfig handler.Config
 	)
 
-	fs.StringVar(&pipelineHandlerConfig.Namespace, "namespace", defaultNamespace(), "Kubernetes namespace")
 	fs.StringVar(&pipelineHandlerConfig.DockerRegistryPath, "docker-registry", defaultDockerRegistryPath(), "Private docker registry path")
 	fs.StringVar(&pipelineHandlerConfig.WorkerImage, "worker-image", defaultWorkerImage(), "Kubernetes worker image")
 	fs.StringVar(&pipelineHandlerConfig.RadixConfigBranch, "radix-config-branch", defaultConfigBranch(), "Branch name to pull radix config from")
 	parseFlagsFromArgs(fs)
 
-	client, err := getKubernetesClient(*kubeconfig)
-	if err != nil {
-		logrus.Fatalf("Unable to obtain kubernetes client: %v", err)
-	}
-
+	client, radixClient := getKubernetesClient(*kubeconfig)
 	logrus.Infof("Listen for incoming events on port %s", *port)
-	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), WebhookLog(*secret, client, &pipelineHandlerConfig))
+
+	err := http.ListenAndServe(fmt.Sprintf(":%s", *port), WebhookLog(client, radixClient, &pipelineHandlerConfig))
 	if err != nil {
 		logrus.Fatalf("Unable to start serving: %v", err)
 	}
@@ -67,13 +63,15 @@ func parseFlagsFromArgs(fs *pflag.FlagSet) {
 	}
 }
 
-func WebhookLog(secret string, kubeclient *kubernetes.Clientset, config *handler.Config) http.Handler {
+func WebhookLog(kubeclient kubernetes.Interface, radixclient radixclient.Interface, config *handler.Config) http.Handler {
 	var p handler.WebhookListener
-	p = handler.NewPipelineController(kubeclient, config)
-	return handler.HandleWebhookEvents(secret, p)
+
+	p = handler.NewPipelineTrigger(kubeclient, config)
+	wh := handler.NewWebHookHandler(radixclient)
+	return wh.HandleWebhookEvents(p)
 }
 
-func getKubernetesClient(kubeConfigPath string) (*kubernetes.Clientset, error) {
+func getKubernetesClient(kubeConfigPath string) (kubernetes.Interface, radixclient.Interface) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
 		config, err = rest.InClusterConfig()
@@ -87,15 +85,16 @@ func getKubernetesClient(kubeConfigPath string) (*kubernetes.Clientset, error) {
 		logrus.Fatalf("getClusterConfig k8s client: %v", err)
 	}
 
-	return client, err
+	radixClient, err := radixclient.NewForConfig(config)
+	if err != nil {
+		logrus.Fatalf("getClusterConfig radix client: %v", err)
+	}
+
+	return client, radixClient
 }
 
 func defaultKubeConfig() string {
 	return os.Getenv("HOME") + "/.kube/config"
-}
-
-func defaultNamespace() string {
-	return "radix-static-html-app"
 }
 
 func defaultConfigBranch() string {
@@ -110,10 +109,6 @@ func defaultWorkerImage() string {
 	return "pipeline-runner"
 }
 
-func defaultSecret() string {
-	return "AnySecret"
-}
-
 func defaultPort() string {
-	return "8001"
+	return "3001"
 }

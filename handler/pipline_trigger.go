@@ -5,6 +5,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
+	"github.com/statoil/radix-operator/pkg/apis/radix/v1"
 	"github.com/thanhpk/randstr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,33 +19,29 @@ import (
 )
 
 type Config struct {
-	Namespace          string
 	DockerRegistryPath string
 	WorkerImage        string
 	RadixConfigBranch  string
 }
 
 type PipelineTrigger struct {
-	kubeclient *kubernetes.Clientset
+	kubeclient kubernetes.Interface
 	config     *Config
 }
 
-func (p *PipelineTrigger) ProcessPingEvent(pingEvent *github.PingEvent, req *http.Request) (string, error) {
-	return "Ping received and a corresponding radix application was found", nil
-}
-
-func (p *PipelineTrigger) ProcessPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request) error {
+func (p *PipelineTrigger) ProcessPullRequestEvent(rr *v1.RadixRegistration, prEvent *github.PullRequestEvent, req *http.Request) error {
 	return errors.New("Pull request is not supported at this moment")
 }
 
-func (p *PipelineTrigger) ProcessPushEvent(pushEvent *github.PushEvent, req *http.Request) error {
+func (p *PipelineTrigger) ProcessPushEvent(rr *v1.RadixRegistration, pushEvent *github.PushEvent, req *http.Request) error {
 	jobName := getUniqueJobName(p.config.WorkerImage)
 	job := p.createPipelineJob(jobName, *pushEvent.Repo.SSHURL)
 
 	logrus.Infof("Starting pipeline: %s, %s", jobName, p.config.WorkerImage)
-	job, err := p.kubeclient.BatchV1().Jobs(p.config.Namespace).Create(job)
+	appNamespace := fmt.Sprintf("%s-app", rr.Name)
+	job, err := p.kubeclient.BatchV1().Jobs(appNamespace).Create(job)
 	if err != nil {
-		logrus.Fatalf("Start pipeline: %v", err)
+		return err
 	}
 
 	jobsSelector := labels.SelectorFromSet(labels.Set(map[string]string{"job_label": jobName})).String()
@@ -52,7 +49,7 @@ func (p *PipelineTrigger) ProcessPushEvent(pushEvent *github.PushEvent, req *htt
 		options.LabelSelector = jobsSelector
 	}
 
-	watchList := cache.NewFilteredListWatchFromClient(p.kubeclient.BatchV1().RESTClient(), "jobs", p.config.Namespace,
+	watchList := cache.NewFilteredListWatchFromClient(p.kubeclient.BatchV1().RESTClient(), "jobs", appNamespace,
 		optionsModifer)
 	_, controller := cache.NewInformer(
 		watchList,
@@ -68,7 +65,7 @@ func (p *PipelineTrigger) ProcessPushEvent(pushEvent *github.PushEvent, req *htt
 	return nil
 }
 
-func NewPipelineController(kubeclient *kubernetes.Clientset, config *Config) *PipelineTrigger {
+func NewPipelineTrigger(kubeclient kubernetes.Interface, config *Config) *PipelineTrigger {
 	return &PipelineTrigger{
 		kubeclient,
 		config,
