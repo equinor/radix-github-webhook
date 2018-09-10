@@ -91,6 +91,7 @@ func (p *PipelineTrigger) createPipelineJob(jobName, sshUrl string) *batchv1.Job
 			BackoffLimit: &backOffLimit,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					ServiceAccountName: "radix-pipeline",
 					InitContainers: []corev1.Container{
 						{
 							Name:    "clone",

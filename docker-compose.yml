@@ -16,7 +16,7 @@ services:
       source: .
       target: /go/src/github.com/ingeknudsen/webhook/
     ports:
-    - "8000:8000"
+    - "3001:3001"
 
 networks:
   radix-webhook-dev:
