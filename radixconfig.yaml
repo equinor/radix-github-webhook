@@ -1,0 +1,18 @@
+apiVersion: radix.equinor.com/v1
+kind: RadixApplication
+metadata:
+  name: radix-webhook
+spec:
+  environments:
+  - name: development
+    authorization:
+    - role: RadixAppAdmin
+      groups:
+      - "g_radix_platform_user"
+  components:
+  - name: "app"
+    src: "."
+    ports:
+    - name: http
+      port: 3001
+    public: true
