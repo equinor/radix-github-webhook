@@ -106,7 +106,7 @@ func defaultDockerRegistryPath() string {
 }
 
 func defaultWorkerImage() string {
-	return "pipeline-runner"
+	return "radix-pipeline"
 }
 
 func defaultPort() string {
