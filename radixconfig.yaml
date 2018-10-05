@@ -1,7 +1,7 @@
 apiVersion: radix.equinor.com/v1
 kind: RadixApplication
 metadata:
-  name: radix-webhook
+  name: radix-github-webhook
 spec:
   environments:
   - name: development
