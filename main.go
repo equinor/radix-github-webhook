@@ -8,7 +8,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"github.com/statoil/radix-webhook/handler"
+	"github.com/statoil/radix-github-webhook/handler"
 )
 
 func main() {

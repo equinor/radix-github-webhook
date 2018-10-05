@@ -14,7 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
-	"github.com/statoil/radix-webhook/models"
+	"github.com/statoil/radix-github-webhook/models"
 )
 
 const hubSignatureHeader = "X-Hub-Signature"

@@ -1,0 +1,5 @@
+apiVersion: v1
+appVersion: "1.0"
+description: Radix Github Webhook
+name: radix-github-webhook
+version: 0.1.0
