@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -158,7 +159,7 @@ func isValidSecret(req *http.Request, body []byte, bearerToken, sshURL string) (
 }
 
 func getRadixRegistrationFromRepo(bearerToken, sshURL string) (*models.ApplicationRegistration, error) {
-	url := fmt.Sprintf(getRegistrationsEndPointPattern, sshURL)
+	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
 	response, err := doRequest(bearerToken, "GET", url)
 	if err != nil {
 		return nil, err
