@@ -185,7 +185,7 @@ func doRequest(bearerToken, method, url string) ([]byte, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", bearerToken))
 
-	log.Infof("POST: %s", url)
+	log.Infof("%s: %s", method, url)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, errors.Errorf("Request failed: %v", err)
