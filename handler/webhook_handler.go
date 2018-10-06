@@ -19,6 +19,8 @@ import (
 )
 
 const hubSignatureHeader = "X-Hub-Signature"
+
+// TODO: Should we standardize on a port
 const apiServerEndPoint = "http://server.radix-api-prod:3002/api"
 const getRegistrationsEndPointPattern = apiServerEndPoint + "/v1/platform/registrations?sshRepo=%s"
 const startPipelineEndPointPattern = apiServerEndPoint + "/v1/platform/registrations/%s/pipeline/%s"
@@ -132,7 +134,7 @@ func processPushEvent(appName, bearerToken string, pushEvent *github.PushEvent, 
 	ref := strings.Split(*pushEvent.Ref, "/")
 	pushBranch := ref[len(ref)-1]
 	url := fmt.Sprintf(startPipelineEndPointPattern, appName, pushBranch)
-	_, err := doRequest(bearerToken, "POST", url)
+	_, err := makeRequest(bearerToken, "POST", url)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func isValidSecret(req *http.Request, body []byte, bearerToken, sshURL string) (
 
 func getRadixRegistrationFromRepo(bearerToken, sshURL string) (*models.ApplicationRegistration, error) {
 	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
-	response, err := doRequest(bearerToken, "GET", url)
+	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +179,7 @@ func getRadixRegistrationFromRepo(bearerToken, sshURL string) (*models.Applicati
 	return &rrs[0], nil
 }
 
-func doRequest(bearerToken, method, url string) ([]byte, error) {
+func makeRequest(bearerToken, method, url string) ([]byte, error) {
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, errors.Errorf("Unable create request for starting pipeline: %v", err)
