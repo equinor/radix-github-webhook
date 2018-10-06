@@ -90,13 +90,13 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 				return
 			}
 
-			err = processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
+			message, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
 			if err != nil {
 				_fail(err)
 				return
 			}
 
-			_succeed()
+			_succeedWithMessage(message)
 
 		case *github.PingEvent:
 			sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
@@ -130,16 +130,16 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 	})
 }
 
-func processPushEvent(appName, bearerToken string, pushEvent *github.PushEvent, req *http.Request) error {
+func processPushEvent(appName, bearerToken string, pushEvent *github.PushEvent, req *http.Request) (string, error) {
 	ref := strings.Split(*pushEvent.Ref, "/")
 	pushBranch := ref[len(ref)-1]
 	url := fmt.Sprintf(startPipelineEndPointPattern, appName, pushBranch)
-	_, err := makeRequest(bearerToken, "POST", url)
+	response, err := makeRequest(bearerToken, "POST", url)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return string(response), nil
 }
 
 func processPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request) error {
