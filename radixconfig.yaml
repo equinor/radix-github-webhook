@@ -4,14 +4,11 @@ metadata:
   name: radix-github-webhook
 spec:
   environments:
-  - name: development
-    authorization:
-    - role: RadixAppAdmin
-      groups:
-      - "g_radix_platform_user"
+  - name: prod
   components:
-  - name: "app"
+  - name: "webhook"
     src: "."
+    dockerfileName: "Dockerfile"
     ports:
     - name: http
       port: 3001
