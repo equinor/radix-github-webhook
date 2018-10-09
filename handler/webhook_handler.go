@@ -56,9 +56,7 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 		_fail := func(err error) {
 			fail(w, event, err)
 		}
-		_succeed := func() {
-			succeed(w, event)
-		}
+
 		_succeedWithMessage := func(message string) {
 			log.Infof("Success: %s", message)
 			succeedWithMessage(w, event, message)
@@ -97,13 +95,13 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 			for _, rr := range rrs {
 				err = isValidSecret(req, body, *rr.SharedSecret)
 				if err != nil {
-					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
 				message, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
 				if err != nil {
-					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: ", rr.Name, err))
+					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
@@ -133,7 +131,7 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 			for _, rr := range rrs {
 				err = isValidSecret(req, body, *rr.SharedSecret)
 				if err != nil {
-					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
@@ -162,13 +160,13 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 			for _, rr := range rrs {
 				err = isValidSecret(req, body, *rr.SharedSecret)
 				if err != nil {
-					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
 				err := processPullRequestEvent(e, req)
 				if err != nil {
-					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: ", rr.Name, err))
+					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
@@ -240,7 +238,7 @@ func getRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.Applic
 		return nil, errors.New("Unable to match repo with Radix registration")
 	}
 
-	return &rrs, nil
+	return rrs, nil
 }
 
 func makeRequest(bearerToken, method, url string) ([]byte, error) {
@@ -276,8 +274,8 @@ func getSSHUrlFromPingURL(pingURL string) string {
 	return fmt.Sprintf("git@github.com:%s.git", fullName)
 }
 
-func unmarshal(b []byte) ([]models.ApplicationRegistration, error) {
-	var res []models.ApplicationRegistration
+func unmarshal(b []byte) ([]*models.ApplicationRegistration, error) {
+	var res []*models.ApplicationRegistration
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
