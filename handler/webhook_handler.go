@@ -320,8 +320,6 @@ func render(w http.ResponseWriter, v interface{}) {
 //
 // validateSignature compares the salted digest in the header with our own computing of the body.
 func validateSignature(signature, secretKey string, payload []byte) error {
-	log.Infof("Secret is %s", secretKey)
-
 	sum := SHA1HMAC([]byte(secretKey), payload)
 	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
 		log.Printf("Expected signature %q (sum), got %q (hub-signature)", sum, signature)
