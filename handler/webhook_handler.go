@@ -84,15 +84,35 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 
 		switch e := payload.(type) {
 		case *github.PushEvent:
-			rr, err := isValidSecret(req, body, wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
+			rrs, err := getRadixRegistrationsFromRepo(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 			if err != nil {
 				_fail(err)
 				return
 			}
 
-			message, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
-			if err != nil {
-				_fail(err)
+			// If one is successful then consider it to be sucess. But will provide warning in message
+			var message string
+			success := false
+
+			for _, rr := range rrs {
+				err = isValidSecret(req, body, *rr.SharedSecret)
+				if err != nil {
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					continue
+				}
+
+				message, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
+				if err != nil {
+					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: ", rr.Name, err))
+					continue
+				}
+
+				success = true
+				message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
+			}
+
+			if !success {
+				_fail(errors.New(message))
 				return
 			}
 
@@ -100,28 +120,68 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 
 		case *github.PingEvent:
 			sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
-			rr, err := isValidSecret(req, body, wh.ServiceAccountBearerToken, sshURL)
+			rrs, err := getRadixRegistrationsFromRepo(wh.ServiceAccountBearerToken, sshURL)
 			if err != nil {
 				_fail(err)
 				return
 			}
 
-			_succeedWithMessage(fmt.Sprintf("Webhook is set up correctly with the Radix project: %s", rr.Name))
+			// If one is successful then consider it to be sucess. But will provide warning in message
+			var message string
+			success := false
+
+			for _, rr := range rrs {
+				err = isValidSecret(req, body, *rr.SharedSecret)
+				if err != nil {
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					continue
+				}
+
+				success = true
+				message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
+			}
+
+			if !success {
+				_fail(errors.New(message))
+				return
+			}
+
+			_succeedWithMessage(message)
 
 		case *github.PullRequestEvent:
-			_, err := isValidSecret(req, body, wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
+			rrs, err := getRadixRegistrationsFromRepo(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 			if err != nil {
 				_fail(err)
 				return
 			}
 
-			err = processPullRequestEvent(e, req)
-			if err != nil {
-				_fail(err)
+			// If one is successful then consider it to be sucess. But will provide warning in message
+			var message string
+			success := false
+
+			for _, rr := range rrs {
+				err = isValidSecret(req, body, *rr.SharedSecret)
+				if err != nil {
+					message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: ", rr.Name, err))
+					continue
+				}
+
+				err := processPullRequestEvent(e, req)
+				if err != nil {
+					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: ", rr.Name, err))
+					continue
+				}
+
+				success = true
+				message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
+			}
+
+			if !success {
+				_fail(errors.New(message))
 				return
 			}
 
-			_succeed()
+			_succeedWithMessage(message)
 
 		default:
 			_fail(fmt.Errorf("Unknown event type %s ", github.WebHookType(req)))
@@ -146,21 +206,25 @@ func processPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request
 	return errors.New("Pull request is not supported at this moment")
 }
 
-func isValidSecret(req *http.Request, body []byte, bearerToken, sshURL string) (*models.ApplicationRegistration, error) {
-	rr, err := getRadixRegistrationFromRepo(bearerToken, sshURL)
-	if err != nil {
-		return nil, err
-	}
-
+func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
 	signature := req.Header.Get(hubSignatureHeader)
-	if err := validateSignature(signature, *rr.SharedSecret, body); err != nil {
-		return nil, err
+	if err := validateSignature(signature, sharedSecret, body); err != nil {
+		return err
 	}
 
-	return rr, nil
+	return nil
 }
 
-func getRadixRegistrationFromRepo(bearerToken, sshURL string) (*models.ApplicationRegistration, error) {
+func appendToMessage(message, messageToAppend string) string {
+	if strings.TrimSpace(message) != "" {
+		message += " "
+	}
+
+	message += messageToAppend
+	return message
+}
+
+func getRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
 	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
 	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
@@ -172,11 +236,11 @@ func getRadixRegistrationFromRepo(bearerToken, sshURL string) (*models.Applicati
 		return nil, err
 	}
 
-	if len(rrs) != 1 {
+	if len(rrs) < 1 {
 		return nil, errors.New("Unable to match repo with Radix registration")
 	}
 
-	return &rrs[0], nil
+	return &rrs, nil
 }
 
 func makeRequest(bearerToken, method, url string) ([]byte, error) {
