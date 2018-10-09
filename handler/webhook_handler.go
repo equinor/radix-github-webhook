@@ -99,14 +99,14 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 					continue
 				}
 
-				message, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
+				responseFromPush, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
 				if err != nil {
 					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
 				}
 
 				success = true
-				message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
+				message = appendToMessage(message, responseFromPush)
 			}
 
 			if !success {
