@@ -82,6 +82,12 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 
 		switch e := payload.(type) {
 		case *github.PushEvent:
+			branch := getBranch(e)
+			if !strings.EqualFold(branch, "master") {
+				log.Warnf("We currently only support push to master. Push on branch %s is ignored", branch)
+				return
+			}
+
 			rrs, err := getRadixRegistrationsFromRepo(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 			if err != nil {
 				_fail(err)
@@ -99,7 +105,7 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 					continue
 				}
 
-				responseFromPush, err := processPushEvent(rr.Name, wh.ServiceAccountBearerToken, e, req)
+				responseFromPush, err := processPushEvent(rr.Name, branch, wh.ServiceAccountBearerToken)
 				if err != nil {
 					message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
 					continue
@@ -188,10 +194,13 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 	})
 }
 
-func processPushEvent(appName, bearerToken string, pushEvent *github.PushEvent, req *http.Request) (string, error) {
+func getBranch(pushEvent *github.PushEvent) string {
 	ref := strings.Split(*pushEvent.Ref, "/")
-	pushBranch := ref[len(ref)-1]
-	url := fmt.Sprintf(startPipelineEndPointPattern, appName, pushBranch)
+	return ref[len(ref)-1]
+}
+
+func processPushEvent(appName, branch, bearerToken string) (string, error) {
+	url := fmt.Sprintf(startPipelineEndPointPattern, appName, branch)
 	response, err := makeRequest(bearerToken, "POST", url)
 	if err != nil {
 		return "", err
@@ -235,7 +244,9 @@ func getRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.Applic
 	}
 
 	if len(rrs) < 1 {
-		return nil, errors.New("Unable to match repo with Radix registration")
+		return nil, errors.New("Unable to match repo with any Radix registration")
+	} else if len(rrs) > 1 {
+		return nil, errors.New("Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo")
 	}
 
 	return rrs, nil
