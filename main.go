@@ -26,7 +26,7 @@ func main() {
 	}
 
 	logrus.Infof("Listen for incoming events on port %s", *port)
-	wh := handler.NewWebHookHandler(token)
+	wh := handler.NewWebHookHandler(token, &handler.APIServerStub{})
 
 	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), wh.HandleWebhookEvents())
 	if err != nil {
