@@ -147,11 +147,11 @@ func NewAPIServerMock() *APIServerMock {
 
 }
 
-func (api *APIServerMock) GetRadixRegistrationsFromRepo(bearerToken, url string) ([]*models.ApplicationRegistration, error) {
+func (api *APIServerMock) GetRegistations(bearerToken, url string) ([]*models.ApplicationRegistration, error) {
 	return api.radixRegistrations[url], nil
 }
 
-func (api *APIServerMock) ProcessPushEvent(bearerToken, appName, branch string) (string, error) {
+func (api *APIServerMock) CreateApplicationPipelineJob(bearerToken, appName, branch string) (string, error) {
 	return getTestMessageForAppAndBranch(appName, branch), nil
 }
 

@@ -14,8 +14,8 @@ import (
 
 // APIServer Stub methods in order to mock endpoints
 type APIServer interface {
-	GetRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
-	ProcessPushEvent(bearerToken, appName, branch string) (string, error)
+	GetRegistations(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
+	CreateApplicationPipelineJob(bearerToken, appName, branch string) (string, error)
 }
 
 // TODO: Should we standardize on a port
@@ -27,8 +27,8 @@ const startPipelineEndPointPattern = apiServerEndPoint + "/v1/platform/registrat
 type APIServerStub struct {
 }
 
-// GetRadixRegistrationsFromRepo Implementation
-func (api *APIServerStub) GetRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
+// GetRegistations Implementation
+func (api *APIServerStub) GetRegistations(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
 	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
 	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
@@ -43,8 +43,8 @@ func (api *APIServerStub) GetRadixRegistrationsFromRepo(bearerToken, sshURL stri
 	return rrs, nil
 }
 
-// ProcessPushEvent Implementation
-func (api *APIServerStub) ProcessPushEvent(bearerToken, appName, branch string) (string, error) {
+// CreateApplicationPipelineJob Implementation
+func (api *APIServerStub) CreateApplicationPipelineJob(bearerToken, appName, branch string) (string, error) {
 	url := fmt.Sprintf(startPipelineEndPointPattern, appName, branch)
 	response, err := makeRequest(bearerToken, "POST", url)
 	if err != nil {
