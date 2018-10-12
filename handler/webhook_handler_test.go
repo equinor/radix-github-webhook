@@ -16,16 +16,16 @@ import (
 
 func Test_get_radix_operator_repo_ssh_url_by_ping_url(t *testing.T) {
 	pingURL := "https://api.github.com/repos/Statoil/radix-operator/hooks/50561858"
-	sshURL := getSSHUrlFromPingURL(pingURL)
+	url := getSSHUrlFromPingURL(pingURL)
 
-	assert.Equal(t, "git@github.com:Statoil/radix-operator.git", sshURL)
+	assert.Equal(t, "git@github.com:Statoil/radix-operator.git", url)
 }
 
 func Test_get_priv_repo_ssh_url_by_ping_url(t *testing.T) {
 	pingURL := "https://api.github.com/repos/keaaa/go-roman/hooks/9917077"
-	sshURL := getSSHUrlFromPingURL(pingURL)
+	url := getSSHUrlFromPingURL(pingURL)
 
-	assert.Equal(t, "git@github.com:keaaa/go-roman.git", sshURL)
+	assert.Equal(t, "git@github.com:keaaa/go-roman.git", url)
 }
 
 func TestSHA1MAC_CorrectlyEncrypted(t *testing.T) {
@@ -37,45 +37,78 @@ func TestSHA1MAC_CorrectlyEncrypted(t *testing.T) {
 	assert.Equal(t, expected, actual, "SHA1HMAC - Incorrect encryption")
 }
 
-func TestHandleWebhookEvents_UnmatchedRepo_Fails(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withSSHURL("git@github.com:Statoil/repo-4.git").BuildPayload()
-	_, err := triggerWebhook(payload, "AnySharedSecret")
+func TestHandleWebhookEvents_PullRequestEvent_FailsWithUnknownEvent(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withURL("git@github.com:Statoil/repo-1.git").BuildPullRequestEventPayload()
+	_, err := triggerWebhook("pull_request", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
 }
 
-func TestHandleWebhookEvents_MatchedMultipleRepos_Fails(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withSSHURL("git@github.com:Statoil/repo-2.git").BuildPayload()
-	_, err := triggerWebhook(payload, "AnySharedSecret")
+func TestHandleWebhookEvents_PingEventUnmatchedRepo_Fails(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withURL("https://api.github.com/repos/Statoil/repo-4/hooks/12345678").BuildPingEventPayload()
+	_, err := triggerWebhook("ping", payload, "AnySharedSecret")
+	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
+}
+
+func TestHandleWebhookEvents_PingEventMatchedMultipleRepos_Fails(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withURL("https://api.github.com/repos/Statoil/repo-2/hooks/12345678").BuildPingEventPayload()
+	_, err := triggerWebhook("ping", payload, "AnySharedSecret")
+	assert.Error(t, err, "HandleWebhookEvents - Multiple matching registrations for the same repo is not allowed")
+}
+
+func TestHandleWebhookEvents_PingEventWithIncorrectSecret_Fails(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withURL("https://api.github.com/repos/Statoil/repo-1/hooks/12345678").BuildPingEventPayload()
+	_, err := triggerWebhook("ping", payload, "IncorrectSecret")
+	assert.Error(t, err, "HandleWebhookEvents - Shared secret was different and should cause error")
+}
+
+func TestHandleWebhookEvents_PingEventWithCorrectSecret_SucceedsWithCorrectMessage(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("https://api.github.com/repos/Statoil/repo-1/hooks/12345678").BuildPingEventPayload()
+	response, err := triggerWebhook("ping", payload, "AnySharedSecret")
+	assert.NoError(t, err, "HandleWebhookEvents - Error occured")
+
+	expected := fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", "app-1")
+	assert.Equal(t, expected, response, "HandleWebhookEvents - Message not expected")
+}
+
+func TestHandleWebhookEvents_PushEventUnmatchedRepo_Fails(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("git@github.com:Statoil/repo-4.git").BuildPushEventPayload()
+	_, err := triggerWebhook("push", payload, "AnySharedSecret")
+	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
+}
+
+func TestHandleWebhookEvents_PushEventMatchedMultipleRepos_Fails(t *testing.T) {
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("git@github.com:Statoil/repo-2.git").BuildPushEventPayload()
+	_, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Multiple matching registrations for the same repo is not allowed")
 }
 
 func TestHandleWebhookEvents_PushEventOnOtherBranchThanMaster_Fails(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/featurebranch").withSSHURL("git@github.com:Statoil/repo-1.git").BuildPayload()
-	_, err := triggerWebhook(payload, "AnySharedSecret")
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/featurebranch").withURL("git@github.com:Statoil/repo-1.git").BuildPushEventPayload()
+	_, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Only master branch should be allowed")
 }
 
 func TestHandleWebhookEvents_PushEventOnMasterWithIncorrectSecret_Fails(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withSSHURL("git@github.com:Statoil/repo-1.git").BuildPayload()
-	_, err := triggerWebhook(payload, "IncorrectSecret")
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("git@github.com:Statoil/repo-1.git").BuildPushEventPayload()
+	_, err := triggerWebhook("push", payload, "IncorrectSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Shared secret was different and should cause error")
 }
 
 func TestHandleWebhookEvents_PushEventOnMaster_SucceedsWithCorrectMessage(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withSSHURL("git@github.com:Statoil/repo-1.git").BuildPayload()
-	response, err := triggerWebhook(payload, "AnySharedSecret")
+	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("git@github.com:Statoil/repo-1.git").BuildPushEventPayload()
+	response, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.NoError(t, err, "HandleWebhookEvents - No error occured")
 	assert.Equal(t, getTestMessageForAppAndBranch("app-1", "master"), response, "HandleWebhookEvents - Message not expected")
 }
 
-func triggerWebhook(payload []byte, sharedSecret string) (string, error) {
+func triggerWebhook(event string, payload []byte, sharedSecret string) (string, error) {
 	wh := NewWebHookHandler("token", NewAPIServerMock())
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("POST", "", bytes.NewReader(payload))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %s", err)
 	}
-	r.Header.Add("X-GitHub-Event", "push")
+	r.Header.Add("X-GitHub-Event", event)
 	r.Header.Add("X-Hub-Signature", SHA1HMAC([]byte(sharedSecret), payload))
 	wh.handleEvent(w, r)
 
@@ -86,7 +119,7 @@ func triggerWebhook(payload []byte, sharedSecret string) (string, error) {
 	}
 
 	if w.Code != 200 {
-		return "", errors.Errorf("Request failed with error: %d", w.Code)
+		return res.Message, errors.Errorf("Request failed with error: %d", w.Code)
 	}
 
 	return res.Message, nil
@@ -114,8 +147,8 @@ func NewAPIServerMock() *APIServerMock {
 
 }
 
-func (api *APIServerMock) GetRadixRegistrationsFromRepo(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
-	return api.radixRegistrations[sshURL], nil
+func (api *APIServerMock) GetRadixRegistrationsFromRepo(bearerToken, url string) ([]*models.ApplicationRegistration, error) {
+	return api.radixRegistrations[url], nil
 }
 
 func (api *APIServerMock) ProcessPushEvent(bearerToken, appName, branch string) (string, error) {
@@ -125,13 +158,15 @@ func (api *APIServerMock) ProcessPushEvent(bearerToken, appName, branch string) 
 // GitHubPayloadBuilder Handles construction of github payload
 type GitHubPayloadBuilder interface {
 	withRef(string) GitHubPayloadBuilder
-	withSSHURL(string) GitHubPayloadBuilder
-	BuildPayload() []byte
+	withURL(string) GitHubPayloadBuilder
+	BuildPushEventPayload() []byte
+	BuildPingEventPayload() []byte
+	BuildPullRequestEventPayload() []byte
 }
 
 type gitHubPayloadBuilder struct {
-	ref    string
-	sshURL string
+	ref string
+	url string
 }
 
 // NewGitHubPayloadBuilder Constructor
@@ -144,12 +179,12 @@ func (pb *gitHubPayloadBuilder) withRef(ref string) GitHubPayloadBuilder {
 	return pb
 }
 
-func (pb *gitHubPayloadBuilder) withSSHURL(sshURL string) GitHubPayloadBuilder {
-	pb.sshURL = sshURL
+func (pb *gitHubPayloadBuilder) withURL(url string) GitHubPayloadBuilder {
+	pb.url = url
 	return pb
 }
 
-func (pb *gitHubPayloadBuilder) BuildPayload() []byte {
+func (pb *gitHubPayloadBuilder) BuildPushEventPayload() []byte {
 	payload := `{
 		"ref": "#REF#",
 		"repository": {
@@ -158,7 +193,29 @@ func (pb *gitHubPayloadBuilder) BuildPayload() []byte {
 	}`
 
 	payload = strings.Replace(payload, "#REF#", pb.ref, 1)
-	payload = strings.Replace(payload, "#SSHURL#", pb.sshURL, 1)
+	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
+	return []byte(payload)
+}
+
+func (pb *gitHubPayloadBuilder) BuildPingEventPayload() []byte {
+	payload := `{
+		"hook": {
+		  "url": "#URL#"
+		}
+	}`
+
+	payload = strings.Replace(payload, "#URL#", pb.url, 1)
+	return []byte(payload)
+}
+
+func (pb *gitHubPayloadBuilder) BuildPullRequestEventPayload() []byte {
+	payload := `{
+		"repository": {
+		  "ssh_url": "#SSHURL#"
+		}
+	}`
+
+	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
 	return []byte(payload)
 }
 

@@ -135,53 +135,23 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		// If one is successful then consider it to be sucess. But will provide warning in message
+		if len(rrs) < 1 {
+			_fail(errors.New("Unable to match repo with any Radix registration"))
+		} else if len(rrs) > 1 {
+			_fail(errors.New("Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"))
+		}
+
 		var message string
-		success := false
+		success := true
 
 		for _, rr := range rrs {
 			err = isValidSecret(req, body, *rr.SharedSecret)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
+				success = false
 				continue
 			}
 
-			success = true
-			message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
-		}
-
-		if !success {
-			_fail(errors.New(message))
-			return
-		}
-
-		_succeedWithMessage(message)
-
-	case *github.PullRequestEvent:
-		rrs, err := wh.apiServer.GetRadixRegistrationsFromRepo(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
-		if err != nil {
-			_fail(err)
-			return
-		}
-
-		// If one is successful then consider it to be sucess. But will provide warning in message
-		var message string
-		success := false
-
-		for _, rr := range rrs {
-			err = isValidSecret(req, body, *rr.SharedSecret)
-			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
-				continue
-			}
-
-			err := processPullRequestEvent(e, req)
-			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
-				continue
-			}
-
-			success = true
 			message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
 		}
 
@@ -201,10 +171,6 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 func getBranch(pushEvent *github.PushEvent) string {
 	ref := strings.Split(*pushEvent.Ref, "/")
 	return ref[len(ref)-1]
-}
-
-func processPullRequestEvent(prEvent *github.PullRequestEvent, req *http.Request) error {
-	return errors.New("Pull request is not supported at this moment")
 }
 
 func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
@@ -229,13 +195,6 @@ func getSSHUrlFromPingURL(pingURL string) string {
 	fullName := pingRepoPattern.ReplaceAllString(pingURL, "")
 	fullName = pingHooksPattern.ReplaceAllString(fullName, "")
 	return fmt.Sprintf("git@github.com:%s.git", fullName)
-}
-
-func succeed(w http.ResponseWriter, event string) {
-	render(w, WebhookResponse{
-		Ok:    true,
-		Event: event,
-	})
 }
 
 func succeedWithMessage(w http.ResponseWriter, event, message string) {
