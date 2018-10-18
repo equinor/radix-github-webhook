@@ -5,6 +5,9 @@ metadata:
 spec:
   environments:
   - name: prod
+  - name: qa
+    build:
+      from: master
   components:
   - name: "webhook"
     src: "."
