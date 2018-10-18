@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,21 +15,23 @@ import (
 
 // APIServer Stub methods in order to mock endpoints
 type APIServer interface {
-	GetRegistations(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
-	CreateApplicationPipelineJob(bearerToken, appName, branch string) (string, error)
+	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
+	TriggerPipeline(bearerToken, appName, branch string) (string, error)
 }
+
+const buildDeployPipeline = "build-deploy"
 
 // TODO: Should we standardize on a port
 const apiServerEndPoint = "http://server.radix-api-prod:3002/api"
-const getRegistrationsEndPointPattern = apiServerEndPoint + "/v1/platform/registrations?sshRepo=%s"
-const startPipelineEndPointPattern = apiServerEndPoint + "/v1/platform/registrations/%s/pipeline/%s"
+const getRegistrationsEndPointPattern = apiServerEndPoint + "/v1/applications?sshRepo=%s"
+const startPipelineEndPointPattern = apiServerEndPoint + "/v1/applications/%s/pipeline/%s"
 
 // APIServerStub Makes calls to real API server
 type APIServerStub struct {
 }
 
-// GetRegistations Implementation
-func (api *APIServerStub) GetRegistations(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
+// ShowApplications Implementation
+func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
 	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
 	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
@@ -43,10 +46,17 @@ func (api *APIServerStub) GetRegistations(bearerToken, sshURL string) ([]*models
 	return rrs, nil
 }
 
-// CreateApplicationPipelineJob Implementation
-func (api *APIServerStub) CreateApplicationPipelineJob(bearerToken, appName, branch string) (string, error) {
-	url := fmt.Sprintf(startPipelineEndPointPattern, appName, branch)
-	response, err := makeRequest(bearerToken, "POST", url)
+// TriggerPipeline Implementation
+func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch string) (string, error) {
+	url := fmt.Sprintf(startPipelineEndPointPattern, appName, buildDeployPipeline)
+
+	parameters := models.PipelineParameters{Branch: branch}
+	body, err := json.Marshal(parameters)
+	if err != nil {
+		return "", err
+	}
+
+	response, err := makeRequestWithBody(bearerToken, "POST", url, body)
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +65,11 @@ func (api *APIServerStub) CreateApplicationPipelineJob(bearerToken, appName, bra
 }
 
 func makeRequest(bearerToken, method, url string) ([]byte, error) {
-	req, err := http.NewRequest(method, url, nil)
+	return makeRequestWithBody(bearerToken, method, url, []byte{})
+}
+
+func makeRequestWithBody(bearerToken, method, url string, reqBody []byte) ([]byte, error) {
+	req, err := http.NewRequest(method, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, errors.Errorf("Unable create request for starting pipeline: %v", err)
 	}
