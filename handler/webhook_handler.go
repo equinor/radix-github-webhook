@@ -81,10 +81,6 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	switch e := payload.(type) {
 	case *github.PushEvent:
 		branch := getBranch(e)
-		if !strings.EqualFold(branch, "master") {
-			log.Warnf("We currently only support push to master. Push on branch %s is ignored", branch)
-			return
-		}
 
 		rrs, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 		if err != nil {
