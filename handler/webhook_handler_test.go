@@ -82,12 +82,6 @@ func TestHandleWebhookEvents_PushEventMatchedMultipleRepos_Fails(t *testing.T) {
 	assert.Error(t, err, "HandleWebhookEvents - Multiple matching registrations for the same repo is not allowed")
 }
 
-func TestHandleWebhookEvents_PushEventOnOtherBranchThanMaster_Fails(t *testing.T) {
-	payload := NewGitHubPayloadBuilder().withRef("refs/heads/featurebranch").withURL("git@github.com:Statoil/repo-1.git").BuildPushEventPayload()
-	_, err := triggerWebhook("push", payload, "AnySharedSecret")
-	assert.Error(t, err, "HandleWebhookEvents - Only master branch should be allowed")
-}
-
 func TestHandleWebhookEvents_PushEventOnMasterWithIncorrectSecret_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().withRef("refs/heads/master").withURL("git@github.com:Statoil/repo-1.git").BuildPushEventPayload()
 	_, err := triggerWebhook("push", payload, "IncorrectSecret")
