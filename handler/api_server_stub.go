@@ -24,7 +24,7 @@ const buildDeployPipeline = "build-deploy"
 // TODO: Should we standardize on a port
 const apiServerEndPoint = "http://server.radix-api-prod:3002/api"
 const getRegistrationsEndPointPattern = apiServerEndPoint + "/v1/applications?sshRepo=%s"
-const startPipelineEndPointPattern = apiServerEndPoint + "/v1/applications/%s/pipeline/%s"
+const startPipelineEndPointPattern = apiServerEndPoint + "/v1/applications/%s/pipelines/%s"
 
 // APIServerStub Makes calls to real API server
 type APIServerStub struct {
