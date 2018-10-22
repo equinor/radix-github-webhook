@@ -1,0 +1,34 @@
+name: radix-github-webhook
+repository: https://github.com/Statoil/radix-github-webhook
+cloneURL: git@github.com:Statoil/radix-github-webhook.git
+adGroups: 
+ - "604bad73-c53b-4a95-ab17-d7953f75c8c3"
+deployKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIEowIBAAKCAQEAsAYQ7b4+OPkZnxdd+FWijwjbs4n+A63M2sIMw5hAtpehosmS
+    u2FewiEThp+EQ5O8Ne08qG3TT6nylNOAnmTi3JrhwbHdBrJWI5oWDmgvjq7PQmkj
+    NH2nsN5+37wgVoT0PBm1z6Ytcmz7V9zB8apg2U8QU9PTJroBPzW5cZ3hOeIjMRg3
+    LzTs8sow+onijTB3T6oRhQfWh00+8do6uI3hfYlUl3cZ1ENhALDOvFcf7Ejy2/+i
+    ow9RelE/pLOZSAqy4OCR/l46SKWsc3rKVdyHxwdv3JNHU6K3Qop/2QYe6TtbEpip
+    lKa994siIRiI2qmqj0ssS7et0M/7juH79ZzGPQIDAQABAoIBAFgg8WDWmviTXwyT
+    +mxXE6hhWv4s3Iyi+6ma9iEHnX7NtBN4sIo4WeUAAnKocuQSl2y4dmItelqsT9PL
+    gN3MzPh+YwFDN9Ief5obj2dvKkBZrVMmqIWjU83t17/UxKwMrOtaQ/jOzno3ri9z
+    S3bfQtYKC7asm08MWYt4Lnx/+z+q8DmCcTa/HjdfOEhSgR6EfEEAHFxbfv2vUEy9
+    LvIqDIOXgXop8KsxXSOl9QeWqLImvc6paN+Z1nULmSWoVbcS+ipRZp+0qJ5lmBgT
+    mQ5MtbXZf5VuXCx1pOVJ9L+TN/wpa2gyMFnd72vm9tx2H5rnvCsfHwzv9kh+re4y
+    UNXJpAECgYEA1hPrz8qw3LJuUxbn93RkUKK4jkZ+HfW18S1GPCwFxXYWABFR/jBP
+    OGSS697rZcXr/AKvuseoV2xAUwzAhkEdn68RlbiSMY9t0fROvF5Udibblz1EOxvJ
+    rIxps8pvSqOQySlfOj8u+O6XyYWncEkPtAcqXLpdqR08kXHFGUz9sf0CgYEA0n5t
+    o4V4EnKft0HT9wKojV6rsIYJbfjfMRZU7Nvq1Lys/pBaw4f5tgl6Gc9xJ7cUV+Ul
+    Z2WKEeAcnDETeSUBWb73VIU/qFQ+I1rJLbDU1zchiUy3jRXpEn2Wh4MW2SU66SgA
+    qcFGI4TMAJrXVUqrqkyer/QaDEARMgakHhv6eUECgYAYkvLXyHmi6+yUJyX7luXJ
+    B9TNqDPj9oerJrpQP/FtqE+ANHzIA/2kCI+A+fblmOGs7RYFB9RALNH5dpZHEwR2
+    hx8qo6RMgh1mI3hCUUW6xl0gsEy7yEXPQ9MCa3N5Cuuc293tjsEynBjabjg5QHnH
+    /aaUPGRx/EQuofOxItBgdQKBgQCgAPykdTtNgpYHvmE6fWnUdGc7+tdGIgy+ioQp
+    vA2ogndZ1i84PK9Dgbav0fDoyJENMyEYlKW8asg0rlVoHAoHx1LIi7VU5hyJ0WPl
+    eGqB4eV7MbbA5yvRI2f+QFZo35UFUKQYZdNEApjzyL/wlJ8jB7UEeSAnubeYeFXe
+    kVP3QQKBgB95Z2/PaFZ7TFwYGBbnWQTXmDfC4YeizPBovGd8xmbWaXDvvDk0dLV9
+    bOGED3nkUfYEvwUFbOei7HeMOZ7b12eAxQdRGSOo3g/5h6E1K0RRPBv+cmk3uy7n
+    VwKt5cmzJnyG4e1znX+k7Tr1KKf6VEUPqefZu/1JZr0XzdSrFApj
+    -----END RSA PRIVATE KEY-----
+sharedSecret: NeatInjection
