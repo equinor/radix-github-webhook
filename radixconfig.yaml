@@ -16,3 +16,10 @@ spec:
     - name: http
       port: 3001
     public: true
+    environmentVariables:
+    - environment: qa
+      variables:
+        API_SERVER_ENDPOINT: "http://server.radix-api-qa:3002/api"
+    - environment: prod
+      variables:
+        API_SERVER_ENDPOINT: "http://server.radix-api-prod:3002/api"    
