@@ -20,19 +20,24 @@ type APIServer interface {
 }
 
 const buildDeployPipeline = "build-deploy"
-
-// TODO: Should we standardize on a port
-const apiServerEndPoint = "http://server.radix-api-prod:3002/api"
-const getRegistrationsEndPointPattern = apiServerEndPoint + "/v1/applications?sshRepo=%s"
-const startPipelineEndPointPattern = apiServerEndPoint + "/v1/applications/%s/pipelines/%s"
+const getRegistrationsEndPointPattern = "/v1/applications?sshRepo=%s"
+const startPipelineEndPointPattern = "/v1/applications/%s/pipelines/%s"
 
 // APIServerStub Makes calls to real API server
 type APIServerStub struct {
+	apiServerEndPoint string
+}
+
+// NewAPIServerStub Constructor
+func NewAPIServerStub(apiServerEndPoint string) APIServer {
+	return &APIServerStub{
+		apiServerEndPoint: apiServerEndPoint,
+	}
 }
 
 // ShowApplications Implementation
 func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
-	url := fmt.Sprintf(getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
+	url := fmt.Sprintf(api.apiServerEndPoint+getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
 	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
 		return nil, err
@@ -48,7 +53,7 @@ func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*model
 
 // TriggerPipeline Implementation
 func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch string) (string, error) {
-	url := fmt.Sprintf(startPipelineEndPointPattern, appName, buildDeployPipeline)
+	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 
 	parameters := models.PipelineParameters{Branch: branch}
 	body, err := json.Marshal(parameters)
