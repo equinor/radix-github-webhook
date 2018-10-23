@@ -16,7 +16,7 @@ import (
 // APIServer Stub methods in order to mock endpoints
 type APIServer interface {
 	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
-	TriggerPipeline(bearerToken, appName, branch string) (string, error)
+	TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error)
 }
 
 const buildDeployPipeline = "build-deploy"
@@ -52,10 +52,10 @@ func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*model
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch string) (string, error) {
+func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 
-	parameters := models.PipelineParameters{Branch: branch}
+	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID}
 	body, err := json.Marshal(parameters)
 	if err != nil {
 		return "", err

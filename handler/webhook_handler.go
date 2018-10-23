@@ -81,6 +81,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	switch e := payload.(type) {
 	case *github.PushEvent:
 		branch := getBranch(e)
+		commitID := *e.After
 
 		rrs, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 		if err != nil {
@@ -105,7 +106,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 				continue
 			}
 
-			responseFromPush, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, rr.Name, branch)
+			responseFromPush, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, rr.Name, branch, commitID)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
 				success = false
