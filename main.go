@@ -15,7 +15,8 @@ func main() {
 	fs := initializeFlagSet()
 
 	var (
-		port = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
+		port              = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
+		apiServerEndpoint = os.Getenv("API_SERVER_ENDPOINT")
 	)
 
 	parseFlagsFromArgs(fs)
@@ -26,7 +27,7 @@ func main() {
 	}
 
 	logrus.Infof("Listen for incoming events on port %s", *port)
-	wh := handler.NewWebHookHandler(token, &handler.APIServerStub{})
+	wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
 
 	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), wh.HandleWebhookEvents())
 	if err != nil {
