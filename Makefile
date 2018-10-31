@@ -22,6 +22,8 @@ test:
 deploy:
 	# Download deploy key + webhook shared secret
 	az keyvault secret download -f values.yaml -n radix-github-radixregistration --vault-name radix-boot-dev-vault
+	# Add (also updates access tokens) and update helm repo
+	az acr helm repo add --name radixdev && helm repo update
 	# Install RR referring to the downloaded secrets
 	helm upgrade --install radix-reg-github-webhook -f values.yaml radixdev/radix-registration 
 	# Delete secret file to avvoid being checked in
