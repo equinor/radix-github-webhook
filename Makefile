@@ -21,20 +21,25 @@ test:
 .PHONY: deploy
 deploy:
 	# Download deploy key + webhook shared secret
-	az keyvault secret download -f ./charts/radix-github/values.yaml -n radix-github-registration --vault-name radix-boot-dev-vault
+	az keyvault secret download -f radix-github-webhook-radixregistration-values.yaml -n radix-github-webhook-radixregistration-values --vault-name radix-boot-dev-vault
+	# Add (also refreshes access tokens) and update helm repo
+	az acr helm repo add --name radixdev && helm repo update
 	# Install RR referring to the downloaded secrets
-	helm install -n radix-github-webhook ./charts/radix-github/
+	helm upgrade --install radix-github-webhook -f radix-github-webhook-radixregistration-values.yaml radixdev/radix-registration
 	# Delete secret file to avvoid being checked in
-	rm ./charts/radix-github/values.yaml
+	rm radix-github-webhook-radixregistration-values.yaml
 	# Allow operator to pick up RR. TODO should be handled with waiting for app namespace
 	sleep 5
 	# Create pipeline job
-	helm install -n radix-github-init-deploy ./charts/init-deploy/		
+	helm upgrade --install radix-pipeline-github-webhook radixdev/radix-pipeline-invocation \
+	    --set name="radix-github-webhook" \
+		--set cloneURL="git@github.com:Statoil/radix-github-webhook.git" \
+		--set cloneBranch="master"
 
 .PHONY: undeploy
 undeploy:
-	helm delete --purge radix-github-init-deploy
-	helm delete --purge radix-github-webhook
+	helm del --purge radix-github-webhook
+	helm del --purge radix-pipeline-github-webhook
 
 .PHONY: $(BINS)
 $(BINS): vendor
