@@ -40,7 +40,6 @@ deploy:
 undeploy:
 	helm del --purge radix-github-webhook
 	helm del --purge radix-pipeline-github-webhook
-	kubectl delete job -n radix-github-webhook-app radix-builder-latest
 
 .PHONY: $(BINS)
 $(BINS): vendor
