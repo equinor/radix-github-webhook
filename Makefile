@@ -21,13 +21,13 @@ test:
 .PHONY: deploy
 deploy:
 	# Download deploy key + webhook shared secret
-	az keyvault secret download -f values.yaml -n radix-github-radixregistration --vault-name radix-boot-dev-vault
-	# Add (also updates access tokens) and update helm repo
+	az keyvault secret download -f radix-github-webhook-radixregistration-values.yaml -n radix-github-webhook-radixregistration-values --vault-name radix-boot-dev-vault
+	# Add (also refreshes access tokens) and update helm repo
 	az acr helm repo add --name radixdev && helm repo update
 	# Install RR referring to the downloaded secrets
-	helm upgrade --install radix-reg-github-webhook -f values.yaml radixdev/radix-registration 
+	helm upgrade --install radix-github-webhook -f radix-github-webhook-radixregistration-values.yaml radixdev/radix-registration
 	# Delete secret file to avvoid being checked in
-	rm values.yaml
+	rm radix-github-webhook-radixregistration-values.yaml
 	# Allow operator to pick up RR. TODO should be handled with waiting for app namespace
 	sleep 5
 	# Create pipeline job
@@ -38,8 +38,9 @@ deploy:
 
 .PHONY: undeploy
 undeploy:
-	helm delete --purge radix-pipeline-github-webhook
-	helm delete --purge radix-reg-github-webhook
+	helm del --purge radix-github-webhook
+	helm del --purge radix-pipeline-github-webhook
+	kubectl delete job -n radix-github-webhook-app radix-builder-latest
 
 .PHONY: $(BINS)
 $(BINS): vendor
