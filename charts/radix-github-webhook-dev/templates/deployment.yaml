@@ -13,7 +13,7 @@ spec:
   appname: {{ .Values.app.name }}
   components:
   - environmentVariables:
-      PIPELINE_IMG_TAG: latest
+      API_SERVER_ENDPOINT: "http://server.radix-api-dev:3002/api"
     image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
     name: {{ .Values.component.name }}
     ports:
