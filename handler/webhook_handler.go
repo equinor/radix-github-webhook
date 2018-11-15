@@ -83,32 +83,38 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		branch := getBranch(e)
 		commitID := *e.After
 
-		rrs, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
+		applicationSummaries, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, e.Repo.GetSSHURL())
 		if err != nil {
 			_fail(err)
 			return
 		}
 
-		if len(rrs) < 1 {
+		if len(applicationSummaries) < 1 {
 			_fail(errors.New("Unable to match repo with any Radix registration"))
-		} else if len(rrs) > 1 {
+		} else if len(applicationSummaries) > 1 {
 			_fail(errors.New("Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"))
 		}
 
 		var message string
 		success := true
 
-		for _, rr := range rrs {
-			err = isValidSecret(req, body, *rr.SharedSecret)
+		for _, applicationSummary := range applicationSummaries {
+			application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
 			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
+				_fail(err)
+				return
+			}
+
+			err = isValidSecret(req, body, *application.Registration.SharedSecret)
+			if err != nil {
+				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", application.Registration.Name, err))
 				success = false
 				continue
 			}
 
-			responseFromPush, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, rr.Name, branch, commitID)
+			responseFromPush, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, application.Registration.Name, branch, commitID)
 			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", rr.Name, err))
+				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", application.Registration.Name, err))
 				success = false
 				continue
 			}
@@ -126,30 +132,36 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 	case *github.PingEvent:
 		sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
-		rrs, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, sshURL)
+		applicationSummaries, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, sshURL)
 		if err != nil {
 			_fail(err)
 			return
 		}
 
-		if len(rrs) < 1 {
+		if len(applicationSummaries) < 1 {
 			_fail(errors.New("Unable to match repo with any Radix registration"))
-		} else if len(rrs) > 1 {
+		} else if len(applicationSummaries) > 1 {
 			_fail(errors.New("Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"))
 		}
 
 		var message string
 		success := true
 
-		for _, rr := range rrs {
-			err = isValidSecret(req, body, *rr.SharedSecret)
+		for _, applicationSummary := range applicationSummaries {
+			application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
 			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", rr.Name, err))
+				_fail(err)
+				return
+			}
+
+			err = isValidSecret(req, body, *application.Registration.SharedSecret)
+			if err != nil {
+				message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", application.Registration.Name, err))
 				success = false
 				continue
 			}
 
-			message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", rr.Name))
+			message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", application.Registration.Name))
 		}
 
 		if !success {
