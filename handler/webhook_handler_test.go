@@ -157,25 +157,42 @@ type response struct {
 }
 
 type APIServerMock struct {
-	radixRegistrations map[string][]*models.ApplicationRegistration
+	radixRegistrations map[string][]*models.Application
 }
 
 func NewAPIServerMock() *APIServerMock {
-	radixRegistrations := make(map[string][]*models.ApplicationRegistration)
-	app1 := models.NewApplicationRegistrationBuilder().WithName("app-1").WithSharedSecret("AnySharedSecret").BuildApplicationRegistration()
-	app2 := models.NewApplicationRegistrationBuilder().WithName("app-2").WithSharedSecret("AnySharedSecret").BuildApplicationRegistration()
-	app3 := models.NewApplicationRegistrationBuilder().WithName("app-3").WithSharedSecret("AnySharedSecret3").BuildApplicationRegistration()
+	radixRegistrations := make(map[string][]*models.Application)
+	app1 := models.NewApplicationBuilder().WithName("app-1").WithSharedSecret("AnySharedSecret").Build()
+	app2 := models.NewApplicationBuilder().WithName("app-2").WithSharedSecret("AnySharedSecret").Build()
+	app3 := models.NewApplicationBuilder().WithName("app-3").WithSharedSecret("AnySharedSecret3").Build()
 
-	radixRegistrations["git@github.com:Statoil/repo-1.git"] = []*models.ApplicationRegistration{app1}
-	radixRegistrations["git@github.com:Statoil/repo-2.git"] = []*models.ApplicationRegistration{app2, app3}
+	radixRegistrations["git@github.com:Statoil/repo-1.git"] = []*models.Application{app1}
+	radixRegistrations["git@github.com:Statoil/repo-2.git"] = []*models.Application{app2, app3}
 
 	return &APIServerMock{
 		radixRegistrations: radixRegistrations}
 
 }
 
-func (api *APIServerMock) ShowApplications(bearerToken, url string) ([]*models.ApplicationRegistration, error) {
-	return api.radixRegistrations[url], nil
+func (api *APIServerMock) ShowApplications(bearerToken, url string) ([]*models.ApplicationSummary, error) {
+	applicationSummaries := make([]*models.ApplicationSummary, len(api.radixRegistrations[url]))
+	for index, application := range api.radixRegistrations[url] {
+		applicationSummaries[index] = &models.ApplicationSummary{Name: application.Registration.Name}
+	}
+
+	return applicationSummaries, nil
+}
+
+func (api *APIServerMock) GetApplication(bearerToken, appName string) (*models.Application, error) {
+	for _, applications := range api.radixRegistrations {
+		for _, application := range applications {
+			if strings.EqualFold(application.Registration.Name, appName) {
+				return application, nil
+			}
+		}
+	}
+
+	return nil, nil
 }
 
 func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error) {

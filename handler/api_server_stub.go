@@ -15,12 +15,14 @@ import (
 
 // APIServer Stub methods in order to mock endpoints
 type APIServer interface {
-	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error)
+	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error)
+	GetApplication(bearerToken, appName string) (*models.Application, error)
 	TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error)
 }
 
 const buildDeployPipeline = "build-deploy"
-const getRegistrationsEndPointPattern = "/v1/applications?sshRepo=%s"
+const getApplicationSummariesEndPointPattern = "/v1/applications?sshRepo=%s"
+const getApplicationEndPointPattern = "/v1/applications/%s"
 const startPipelineEndPointPattern = "/v1/applications/%s/pipelines/%s"
 
 // APIServerStub Makes calls to real API server
@@ -36,19 +38,35 @@ func NewAPIServerStub(apiServerEndPoint string) APIServer {
 }
 
 // ShowApplications Implementation
-func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationRegistration, error) {
-	url := fmt.Sprintf(api.apiServerEndPoint+getRegistrationsEndPointPattern, url.QueryEscape(sshURL))
+func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error) {
+	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationSummariesEndPointPattern, url.QueryEscape(sshURL))
 	response, err := makeRequest(bearerToken, "GET", url)
 	if err != nil {
 		return nil, err
 	}
 
-	rrs, err := unmarshal(response)
+	rrs, err := unmarshalApplicationSummary(response)
 	if err != nil {
 		return nil, err
 	}
 
 	return rrs, nil
+}
+
+// GetApplication Implementation
+func (api *APIServerStub) GetApplication(bearerToken, appName string) (*models.Application, error) {
+	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationEndPointPattern, appName)
+	response, err := makeRequest(bearerToken, "GET", url)
+	if err != nil {
+		return nil, err
+	}
+
+	application, err := unmarshalApplication(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return application, nil
 }
 
 // TriggerPipeline Implementation
@@ -100,8 +118,16 @@ func makeRequestWithBody(bearerToken, method, url string, reqBody []byte) ([]byt
 	return body, nil
 }
 
-func unmarshal(b []byte) ([]*models.ApplicationRegistration, error) {
-	var res []*models.ApplicationRegistration
+func unmarshalApplicationSummary(b []byte) ([]*models.ApplicationSummary, error) {
+	var res []*models.ApplicationSummary
+	if err := json.Unmarshal(b, &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func unmarshalApplication(b []byte) (*models.Application, error) {
+	var res *models.Application
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
