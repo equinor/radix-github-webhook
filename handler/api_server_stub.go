@@ -17,7 +17,7 @@ import (
 type APIServer interface {
 	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error)
 	GetApplication(bearerToken, appName string) (*models.Application, error)
-	TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error)
+	TriggerPipeline(bearerToken, appName, branch, commitID string) (*models.JobSummary, error)
 }
 
 const buildDeployPipeline = "build-deploy"
@@ -70,21 +70,26 @@ func (api *APIServerStub) GetApplication(bearerToken, appName string) (*models.A
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error) {
+func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID string) (*models.JobSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 
 	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID}
 	body, err := json.Marshal(parameters)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	response, err := makeRequestWithBody(bearerToken, "POST", url, body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(response), nil
+	jobSummary, err := unmarshalJobSummary(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return jobSummary, nil
 }
 
 func makeRequest(bearerToken, method, url string) ([]byte, error) {
@@ -106,9 +111,18 @@ func makeRequestWithBody(bearerToken, method, url string, reqBody []byte) ([]byt
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, errors.Errorf("Request failed with error: %s", resp.Status)
+		return nil, unmarshalError(resp)
 	}
 
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func readBody(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -132,4 +146,26 @@ func unmarshalApplication(b []byte) (*models.Application, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+func unmarshalJobSummary(b []byte) (*models.JobSummary, error) {
+	var res *models.JobSummary
+	if err := json.Unmarshal(b, &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func unmarshalError(resp *http.Response) error {
+	body, err := readBody(resp)
+	if err != nil {
+		return err
+	}
+
+	var res *models.Error
+	if err := json.Unmarshal(body, &res); err != nil {
+		return err
+	}
+
+	return errors.Errorf("%s", res.Message)
 }

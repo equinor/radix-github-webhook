@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const anyJobName = "anyJobName"
+
 func Test_get_radix_operator_repo_ssh_url_by_ping_url(t *testing.T) {
 	pingURL := "https://api.github.com/repos/Statoil/radix-operator/hooks/50561858"
 	url := getSSHUrlFromPingURL(pingURL)
@@ -125,7 +127,8 @@ func TestHandleWebhookEvents_PushEventOnMaster_SucceedsWithCorrectMessage(t *tes
 		BuildPushEventPayload()
 	response, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.NoError(t, err, "HandleWebhookEvents - No error occured")
-	assert.Equal(t, getTestMessageForAppAndBranchWithCommitID("app-1", "master", commitID), response, "HandleWebhookEvents - Message not expected")
+
+	assert.Equal(t, getMessageForJob(anyJobName, "app-1", "master", commitID), response, "HandleWebhookEvents - Message not expected")
 }
 
 func triggerWebhook(event string, payload []byte, sharedSecret string) (string, error) {
@@ -195,8 +198,13 @@ func (api *APIServerMock) GetApplication(bearerToken, appName string) (*models.A
 	return nil, nil
 }
 
-func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID string) (string, error) {
-	return getTestMessageForAppAndBranchWithCommitID(appName, branch, commitID), nil
+func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID string) (*models.JobSummary, error) {
+	return &models.JobSummary{
+		Name:     anyJobName,
+		AppName:  appName,
+		Branch:   branch,
+		CommitID: commitID,
+	}, nil
 }
 
 // GitHubPayloadBuilder Handles construction of github payload
@@ -270,8 +278,4 @@ func (pb *gitHubPayloadBuilder) BuildPullRequestEventPayload() []byte {
 
 	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
 	return []byte(payload)
-}
-
-func getTestMessageForAppAndBranchWithCommitID(appName, branch, commitID string) string {
-	return fmt.Sprintf("Push event for %s on branch %s with commit ID %s was processed ok", appName, branch, commitID)
 }

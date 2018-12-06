@@ -94,7 +94,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		success := true
 
 		for _, applicationSummary := range applicationSummaries {
-			responseFromPush, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID)
+			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", applicationSummary.Name, err))
 				success = false
@@ -102,7 +102,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			}
 
 			success = true
-			message = appendToMessage(message, responseFromPush)
+			message = appendToMessage(message, getMessageForJob(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 		}
 
 		if !success {
@@ -165,6 +165,10 @@ func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshUR
 	}
 
 	return applicationSummaries, message, nil
+}
+
+func getMessageForJob(jobName, appName, branch, commitID string) string {
+	return fmt.Sprintf("Job %s started for %s on branch %s for commit %s", jobName, appName, branch, commitID)
 }
 
 func getBranch(pushEvent *github.PushEvent) string {
