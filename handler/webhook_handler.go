@@ -52,8 +52,8 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) {
 	event := req.Header.Get("x-github-event")
 
-	_fail := func(err error) {
-		fail(w, event, err)
+	_fail := func(statusCode int, err error) {
+		fail(w, event, statusCode, err)
 	}
 
 	_succeedWithMessage := func(message string) {
@@ -62,20 +62,20 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 
 	if len(strings.TrimSpace(event)) == 0 {
-		_fail(fmt.Errorf("Not a github event"))
+		_fail(http.StatusBadRequest, fmt.Errorf("Not a github event"))
 		return
 	}
 
 	// Need to parse webhook before validation because the secret is taken from the matching repo
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		_fail(fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
 
 	payload, err := github.ParseWebHook(github.WebHookType(req), body)
 	if err != nil {
-		_fail(fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
 
@@ -86,7 +86,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 		applicationSummaries, _, err := wh.validateCloneURL(req, body, e.Repo.GetSSHURL())
 		if err != nil {
-			_fail(err)
+			_fail(http.StatusBadRequest, err)
 			return
 		}
 
@@ -106,7 +106,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		if !success {
-			_fail(errors.New(message))
+			_fail(http.StatusBadRequest, errors.New(message))
 			return
 		}
 
@@ -117,14 +117,14 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		_, message, err := wh.validateCloneURL(req, body, sshURL)
 
 		if err != nil {
-			_fail(err)
+			_fail(http.StatusBadRequest, err)
 			return
 		}
 
 		_succeedWithMessage(message)
 
 	default:
-		_fail(fmt.Errorf("Unknown event type %s ", github.WebHookType(req)))
+		_fail(http.StatusNotFound, fmt.Errorf("Unknown event type %s ", github.WebHookType(req)))
 		return
 	}
 }
@@ -208,9 +208,9 @@ func succeedWithMessage(w http.ResponseWriter, event, message string) {
 	})
 }
 
-func fail(w http.ResponseWriter, event string, err error) {
+func fail(w http.ResponseWriter, event string, statusCode int, err error) {
 	log.Printf("%s\n", err)
-	w.WriteHeader(500)
+	w.WriteHeader(statusCode)
 	render(w, WebhookResponse{
 		Ok:    false,
 		Event: event,
