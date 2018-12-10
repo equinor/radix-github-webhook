@@ -62,20 +62,20 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 
 	if len(strings.TrimSpace(event)) == 0 {
-		_fail(http.StatusUnprocessableEntity, fmt.Errorf("Not a github event"))
+		_fail(http.StatusBadRequest, fmt.Errorf("Not a github event"))
 		return
 	}
 
 	// Need to parse webhook before validation because the secret is taken from the matching repo
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		_fail(http.StatusUnprocessableEntity, fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
 
 	payload, err := github.ParseWebHook(github.WebHookType(req), body)
 	if err != nil {
-		_fail(http.StatusUnprocessableEntity, fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
 
@@ -86,7 +86,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 		applicationSummaries, _, err := wh.validateCloneURL(req, body, e.Repo.GetSSHURL())
 		if err != nil {
-			_fail(http.StatusUnprocessableEntity, err)
+			_fail(http.StatusBadRequest, err)
 			return
 		}
 
@@ -106,7 +106,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		if !success {
-			_fail(http.StatusUnprocessableEntity, errors.New(message))
+			_fail(http.StatusBadRequest, errors.New(message))
 			return
 		}
 
@@ -117,7 +117,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		_, message, err := wh.validateCloneURL(req, body, sshURL)
 
 		if err != nil {
-			_fail(http.StatusUnprocessableEntity, err)
+			_fail(http.StatusBadRequest, err)
 			return
 		}
 
