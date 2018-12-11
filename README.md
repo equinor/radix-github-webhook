@@ -15,4 +15,4 @@ Install and run ngrok to expose localhost by 'ngrok http 3001'. The webhook in g
 5. Execute `kubectl edit deploy webhook -n radix-github-webhook-qa`
 6. Edit the image name from `radix-github-webhook-webhook` to `radix-github-webhook` and tag from `latest` to `<imagetag>`
 7. Save and close
-8. Wait for pods to start.
+8. Wait for pods to start
