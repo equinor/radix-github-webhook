@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/equinor/radix-github-webhook/models"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
-	"github.com/statoil/radix-github-webhook/models"
 )
 
 const hubSignatureHeader = "X-Hub-Signature"

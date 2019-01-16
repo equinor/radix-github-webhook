@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/equinor/radix-github-webhook/handler"
 	"github.com/spf13/pflag"
-	"github.com/statoil/radix-github-webhook/handler"
 )
 
 func main() {

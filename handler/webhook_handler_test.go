@@ -9,18 +9,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/equinor/radix-github-webhook/models"
 	"github.com/pkg/errors"
-	"github.com/statoil/radix-github-webhook/models"
 	"github.com/stretchr/testify/assert"
 )
 
 const anyJobName = "anyJobName"
 
 func Test_get_radix_operator_repo_ssh_url_by_ping_url(t *testing.T) {
-	pingURL := "https://api.github.com/repos/Statoil/radix-operator/hooks/50561858"
+	pingURL := "https://api.github.com/repos/equinor/radix-operator/hooks/50561858"
 	url := getSSHUrlFromPingURL(pingURL)
 
-	assert.Equal(t, "git@github.com:Statoil/radix-operator.git", url)
+	assert.Equal(t, "git@github.com:equinor/radix-operator.git", url)
 }
 
 func Test_get_priv_repo_ssh_url_by_ping_url(t *testing.T) {
@@ -41,7 +41,7 @@ func TestSHA1MAC_CorrectlyEncrypted(t *testing.T) {
 
 func TestHandleWebhookEvents_PullRequestEvent_FailsWithUnknownEvent(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
-		withURL("git@github.com:Statoil/repo-1.git").
+		withURL("git@github.com:equinor/repo-1.git").
 		BuildPullRequestEventPayload()
 	_, err := triggerWebhook("pull_request", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
@@ -49,7 +49,7 @@ func TestHandleWebhookEvents_PullRequestEvent_FailsWithUnknownEvent(t *testing.T
 
 func TestHandleWebhookEvents_PingEventUnmatchedRepo_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/Statoil/repo-4/hooks/12345678").
+		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
 		BuildPingEventPayload()
 	_, err := triggerWebhook("ping", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
@@ -57,7 +57,7 @@ func TestHandleWebhookEvents_PingEventUnmatchedRepo_Fails(t *testing.T) {
 
 func TestHandleWebhookEvents_PingEventMatchedMultipleRepos_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/Statoil/repo-2/hooks/12345678").
+		withURL("https://api.github.com/repos/equinor/repo-2/hooks/12345678").
 		BuildPingEventPayload()
 	_, err := triggerWebhook("ping", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Multiple matching registrations for the same repo is not allowed")
@@ -65,7 +65,7 @@ func TestHandleWebhookEvents_PingEventMatchedMultipleRepos_Fails(t *testing.T) {
 
 func TestHandleWebhookEvents_PingEventWithIncorrectSecret_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/Statoil/repo-1/hooks/12345678").
+		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
 		BuildPingEventPayload()
 	_, err := triggerWebhook("ping", payload, "IncorrectSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Shared secret was different and should cause error")
@@ -76,7 +76,7 @@ func TestHandleWebhookEvents_PingEventWithCorrectSecret_SucceedsWithCorrectMessa
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("https://api.github.com/repos/Statoil/repo-1/hooks/12345678").
+		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
 		BuildPingEventPayload()
 	response, err := triggerWebhook("ping", payload, "AnySharedSecret")
 	assert.NoError(t, err, "HandleWebhookEvents - Error occured")
@@ -90,7 +90,7 @@ func TestHandleWebhookEvents_PushEventUnmatchedRepo_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("git@github.com:Statoil/repo-4.git").
+		withURL("git@github.com:equinor/repo-4.git").
 		BuildPushEventPayload()
 	_, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Could not find matching repo")
@@ -101,7 +101,7 @@ func TestHandleWebhookEvents_PushEventMatchedMultipleRepos_Fails(t *testing.T) {
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("git@github.com:Statoil/repo-2.git").
+		withURL("git@github.com:equinor/repo-2.git").
 		BuildPushEventPayload()
 	_, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Multiple matching registrations for the same repo is not allowed")
@@ -112,7 +112,7 @@ func TestHandleWebhookEvents_PushEventOnMasterWithIncorrectSecret_Fails(t *testi
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("git@github.com:Statoil/repo-1.git").
+		withURL("git@github.com:equinor/repo-1.git").
 		BuildPushEventPayload()
 	_, err := triggerWebhook("push", payload, "IncorrectSecret")
 	assert.Error(t, err, "HandleWebhookEvents - Shared secret was different and should cause error")
@@ -123,7 +123,7 @@ func TestHandleWebhookEvents_PushEventOnMaster_SucceedsWithCorrectMessage(t *tes
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("git@github.com:Statoil/repo-1.git").
+		withURL("git@github.com:equinor/repo-1.git").
 		BuildPushEventPayload()
 	response, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.NoError(t, err, "HandleWebhookEvents - No error occured")
@@ -169,8 +169,8 @@ func NewAPIServerMock() *APIServerMock {
 	app2 := models.NewApplicationBuilder().WithName("app-2").WithSharedSecret("AnySharedSecret").Build()
 	app3 := models.NewApplicationBuilder().WithName("app-3").WithSharedSecret("AnySharedSecret3").Build()
 
-	radixRegistrations["git@github.com:Statoil/repo-1.git"] = []*models.Application{app1}
-	radixRegistrations["git@github.com:Statoil/repo-2.git"] = []*models.Application{app2, app3}
+	radixRegistrations["git@github.com:equinor/repo-1.git"] = []*models.Application{app1}
+	radixRegistrations["git@github.com:equinor/repo-2.git"] = []*models.Application{app2, app3}
 
 	return &APIServerMock{
 		radixRegistrations: radixRegistrations}
