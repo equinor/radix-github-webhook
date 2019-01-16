@@ -2,7 +2,7 @@ FROM golang:alpine3.7 as builder
 RUN apk update && apk add git && apk add -y ca-certificates curl && \
     curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
-WORKDIR /go/src/github.com/statoil/radix-github-webhook/
+WORKDIR /go/src/github.com/equinor/radix-github-webhook/
 COPY Gopkg.toml Gopkg.lock ./
 RUN dep ensure -vendor-only
 COPY . .
