@@ -10,7 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
-	"github.com/statoil/radix-github-webhook/models"
+	"github.com/equinor/radix-github-webhook/models"
 )
 
 // APIServer Stub methods in order to mock endpoints

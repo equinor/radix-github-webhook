@@ -33,7 +33,7 @@ deploy:
 	# Create pipeline job
 	helm upgrade --install radix-pipeline-github-webhook radixdev/radix-pipeline-invocation \
 	    --set name="radix-github-webhook" \
-		--set cloneURL="git@github.com:Statoil/radix-github-webhook.git" \
+		--set cloneURL="git@github.com:equinor/radix-github-webhook.git" \
 		--set cloneBranch="master"
 
 .PHONY: undeploy
