@@ -6,6 +6,12 @@ Support github webhook to trigger pipeline build through the API server
 
 Install and run ngrok to expose localhost by 'ngrok http 3001'. The webhook in github should point to the ngrok adress.
 
+## Deployment
+
+Radix github webhook follow the [standard procedure](https://github.com/equinor/radix-private/blob/master/docs/how-we-work/development-practices.md#standard-radix-applications) defined in how we work.
+
+Radix github webhook is installed as a radix application in [script](https://github.com/equinor/radix-platform/blob/master/scripts/install_base_components.sh) when setting up a cluster. It will setup app environment with [aliases](https://github.com/equinor/radix-platform/blob/master/scripts/create_alias.sh), and a webhook so that changes to this repository will be reflected in radix platform. 
+
 ## Manual redeployment on existing cluster
 
 1. Execute `make docker-build`
