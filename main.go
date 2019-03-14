@@ -11,12 +11,20 @@ import (
 	"github.com/spf13/pflag"
 )
 
+func getApiServerEndpoint() string {
+	apiServerPrefix := os.Getenv("API_SERVER_ENDPOINT_PREFIX")
+	clusterName := os.Getenv("RADIX_CLUSTERNAME")
+	dnsZone := os.Getenv("RADIX_DNS_ZONE")
+
+	return fmt.Sprintf("%s.%s.%s/api", apiServerPrefix, clusterName, dnsZone)
+}
+
 func main() {
 	fs := initializeFlagSet()
 
 	var (
 		port              = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
-		apiServerEndpoint = os.Getenv("API_SERVER_ENDPOINT")
+		apiServerEndpoint = getApiServerEndpoint()
 	)
 
 	parseFlagsFromArgs(fs)

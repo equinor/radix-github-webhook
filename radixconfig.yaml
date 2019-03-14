@@ -22,10 +22,10 @@ spec:
     environmentConfig:
     - environment: dev
       variables:
-        API_SERVER_ENDPOINT: "http://server.radix-api-dev:3002/api"
+        API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-dev"
     - environment: qa
       variables:
-        API_SERVER_ENDPOINT: "http://server.radix-api-qa:3002/api"
+        API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-qa"
     - environment: prod
       variables:
-        API_SERVER_ENDPOINT: "http://server.radix-api-prod:3002/api"    
+        API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"    
