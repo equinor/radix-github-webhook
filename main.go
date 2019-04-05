@@ -8,6 +8,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/equinor/radix-github-webhook/handler"
+	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 )
 
@@ -37,10 +39,17 @@ func main() {
 	logrus.Infof("Listen for incoming events on port %s", *port)
 	wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
 
-	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), wh.HandleWebhookEvents())
+	router := mux.NewRouter()
+	router.Handle("/metrics", promhttp.Handler())
+	router.Handle("/", wh.HandleWebhookEvents())
+	http.Handle("/", router)
+
+	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), nil)
+
 	if err != nil {
 		logrus.Fatalf("Unable to start serving: %v", err)
 	}
+
 }
 
 func initializeFlagSet() *pflag.FlagSet {

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -50,6 +51,9 @@ func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
 }
 
 func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) {
+	// Increase metrics counter
+	metrics.IncreaseAllCounter()
+
 	event := req.Header.Get("x-github-event")
 
 	_fail := func(statusCode int, err error) {
@@ -62,6 +66,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 
 	if len(strings.TrimSpace(event)) == 0 {
+		metrics.IncreaseNotGithubEventCounter()
 		_fail(http.StatusBadRequest, fmt.Errorf("Not a github event"))
 		return
 	}
@@ -69,12 +74,14 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	// Need to parse webhook before validation because the secret is taken from the matching repo
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
+		metrics.IncreaseFailedParsingCounter()
 		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
 
 	payload, err := github.ParseWebHook(github.WebHookType(req), body)
 	if err != nil {
+		metrics.IncreaseFailedParsingCounter()
 		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
 		return
 	}
@@ -83,9 +90,13 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	case *github.PushEvent:
 		branch := getBranch(e)
 		commitID := *e.After
+		sshURL := e.Repo.GetSSHURL()
 
-		applicationSummaries, _, err := wh.validateCloneURL(req, body, e.Repo.GetSSHURL())
+		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
+
+		applicationSummaries, _, err := wh.validateCloneURL(req, body, sshURL)
 		if err != nil {
+			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
 			_fail(http.StatusBadRequest, err)
 			return
 		}
@@ -95,6 +106,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 		for _, applicationSummary := range applicationSummaries {
 			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID)
+			metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", applicationSummary.Name, err))
 				success = false
@@ -106,6 +118,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		if !success {
+			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
 			_fail(http.StatusBadRequest, errors.New(message))
 			return
 		}
@@ -114,9 +127,12 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 	case *github.PingEvent:
 		sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
+		metrics.IncreasePingGithubEventTypeCounter(sshURL)
+
 		_, message, err := wh.validateCloneURL(req, body, sshURL)
 
 		if err != nil {
+			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
 			_fail(http.StatusBadRequest, err)
 			return
 		}
@@ -124,6 +140,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		_succeedWithMessage(message)
 
 	default:
+		metrics.IncreaseUnsupportedGithubEventTypeCounter()
 		_fail(http.StatusNotFound, fmt.Errorf("Unknown event type %s ", github.WebHookType(req)))
 		return
 	}
