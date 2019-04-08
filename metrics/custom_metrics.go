@@ -69,7 +69,7 @@ var (
 			Name: "radix_webhook_request_push_github_event_type_failed_trigger_pipeline_counter",
 			Help: "Counter for push GitHub event type failed trigger pipeline requests",
 		},
-		[]string{sshURLLabel, branchLabel, commitIDLabel, appNameLabel},
+		[]string{sshURLLabel, branchLabel, commitIDLabel},
 	)
 )
 
