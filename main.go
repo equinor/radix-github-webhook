@@ -41,6 +41,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.Handle("/metrics", promhttp.Handler())
+	router.Handle("/events/github", wh.HandleWebhookEvents())
 	router.Handle("/", wh.HandleWebhookEvents())
 	http.Handle("/", router)
 
