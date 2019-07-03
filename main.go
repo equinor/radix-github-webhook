@@ -40,9 +40,13 @@ func main() {
 	wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
 
 	router := mux.NewRouter()
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}).Methods("GET")
 	router.Handle("/metrics", promhttp.Handler())
 	router.Handle("/events/github", wh.HandleWebhookEvents())
 	router.Handle("/", wh.HandleWebhookEvents())
+
 	http.Handle("/", router)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), nil)
