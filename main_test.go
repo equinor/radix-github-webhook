@@ -17,7 +17,7 @@ func Test_get_api_service_endpoint_format(t *testing.T) {
 	os.Setenv("RADIX_CLUSTERNAME", clusterName)
 	os.Setenv("RADIX_DNS_ZONE", dnsZone)
 
-	url := getApiServerEndpoint()
+	url := getAPIServerEndpoint()
 
 	assert.Equal(t, expect, url)
 
