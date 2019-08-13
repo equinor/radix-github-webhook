@@ -189,8 +189,9 @@ func getMessageForJob(jobName, appName, branch, commitID string) string {
 }
 
 func getBranch(pushEvent *github.PushEvent) string {
+	// Remove refs/heads from ref
 	ref := strings.Split(*pushEvent.Ref, "/")
-	return ref[len(ref)-1]
+	return strings.Join(ref[2:len(ref)], "/")
 }
 
 func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
