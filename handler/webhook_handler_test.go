@@ -10,11 +10,18 @@ import (
 	"testing"
 
 	"github.com/equinor/radix-github-webhook/models"
+	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
 const anyJobName = "anyJobName"
+
+func Test_GetBranch_RemovesRefsHead(t *testing.T) {
+	assert.Equal(t, "master", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/master")}))
+	assert.Equal(t, "feature/RA-326-TestBranch", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/feature/RA-326-TestBranch")}))
+	assert.Equal(t, "hotfix/api/refs/heads/fix1", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")}))
+}
 
 func Test_get_radix_operator_repo_ssh_url_by_ping_url(t *testing.T) {
 	pingURL := "https://api.github.com/repos/equinor/radix-operator/hooks/50561858"
@@ -278,4 +285,8 @@ func (pb *gitHubPayloadBuilder) BuildPullRequestEventPayload() []byte {
 
 	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
 	return []byte(payload)
+}
+
+func strPtr(s string) *string {
+	return &s
 }
