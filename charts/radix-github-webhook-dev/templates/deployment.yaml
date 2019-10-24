@@ -4,7 +4,7 @@ metadata:
   labels:
     radix-commit: {{ .Values.buildID }}
     radix-env: {{ .Values.app.env }}
-    radixApp: {{ .Values.app.name }}
+    radix-app: {{ .Values.app.name }}
     draft: {{ default "draft-app" .Values.draft }}
     chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"    
   name: {{ .Values.app.name }}
