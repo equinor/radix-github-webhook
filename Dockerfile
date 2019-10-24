@@ -1,19 +1,20 @@
-FROM golang:alpine3.7 as builder
+FROM golang:alpine3.10 as builder
+
 RUN apk update && \
-    apk add git && \
-    apk add -y ca-certificates curl && \
+    apk add git ca-certificates dep  && \
     apk add --no-cache gcc musl-dev && \
-    go get -u golang.org/x/lint/golint && \
-    curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+    go get -u golang.org/x/lint/golint
 
 WORKDIR /go/src/github.com/equinor/radix-github-webhook/
+
+# Install project dependencies
 COPY Gopkg.toml Gopkg.lock ./
 RUN dep ensure -vendor-only
 COPY . .
 
 RUN golint `go list ./...` && \
     go vet `go list ./...` && \
-    CGO_ENABLED=0 GOOS=linux go test ./...
+    CGO_ENABLED=0 GOOS=linux go test `go list ./...`
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -a -installsuffix cgo -o /usr/local/bin/radix-github-webhook
 
 FROM scratch
