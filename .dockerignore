@@ -2,3 +2,4 @@ Dockerfile
 draft.toml
 charts/
 vendor
+.git
