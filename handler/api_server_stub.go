@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/pkg/errors"
 	"github.com/equinor/radix-github-webhook/models"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // APIServer Stub methods in order to mock endpoints
