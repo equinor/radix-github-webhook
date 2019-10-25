@@ -11,11 +11,11 @@ import (
 	"regexp"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v28/github"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const hubSignatureHeader = "X-Hub-Signature"
