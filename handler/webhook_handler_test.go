@@ -205,13 +205,13 @@ func (api *APIServerMock) GetApplication(bearerToken, appName string) (*models.A
 	return nil, nil
 }
 
-func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID, creator string) (*models.JobSummary, error) {
+func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
 	return &models.JobSummary{
-		Name:     anyJobName,
-		AppName:  appName,
-		Branch:   branch,
-		CommitID: commitID,
-		Creator:  creator,
+		Name:        anyJobName,
+		AppName:     appName,
+		Branch:      branch,
+		CommitID:    commitID,
+		TriggeredBy: triggeredBy,
 	}, nil
 }
 

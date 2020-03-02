@@ -17,7 +17,7 @@ import (
 type APIServer interface {
 	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error)
 	GetApplication(bearerToken, appName string) (*models.Application, error)
-	TriggerPipeline(bearerToken, appName, branch, commitID, creator string) (*models.JobSummary, error)
+	TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error)
 }
 
 const buildDeployPipeline = "build-deploy"
@@ -70,10 +70,11 @@ func (api *APIServerStub) GetApplication(bearerToken, appName string) (*models.A
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID, creator string) (*models.JobSummary, error) {
+func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 
-	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, Creator: creator}
+	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, TriggeredBy: triggeredBy}
+
 	body, err := json.Marshal(parameters)
 	if err != nil {
 		return nil, err

@@ -14,9 +14,9 @@ type PipelineParameters struct {
 	// example: 4faca8595c5283a9d0f17a623b9255a0d9866a2e
 	CommitID string `json:"commitID"`
 
-	// Creator creator of job
+	// TriggeredBy creator of job
 	//
 	// required: true
 	// example: 4faca8595c5283a9d0f17a623b9255a0d9866a2e
-	Creator string `json:"creator"`
+	TriggeredBy string `json:"triggeredBy"`
 }
