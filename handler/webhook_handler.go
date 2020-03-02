@@ -107,6 +107,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 		for _, applicationSummary := range applicationSummaries {
 			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
+
 			metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", applicationSummary.Name, err))

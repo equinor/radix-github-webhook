@@ -74,6 +74,7 @@ func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 
 	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, TriggeredBy: triggeredBy}
+
 	body, err := json.Marshal(parameters)
 	if err != nil {
 		return nil, err
