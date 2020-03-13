@@ -91,6 +91,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		branch := getBranch(e)
 		commitID := *e.After
 		sshURL := e.Repo.GetSSHURL()
+		triggeredBy := getPushTriggeredBy(e)
 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
@@ -105,7 +106,8 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		success := true
 
 		for _, applicationSummary := range applicationSummaries {
-			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID)
+			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
+
 			metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 			if err != nil {
 				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", applicationSummary.Name, err))
@@ -182,6 +184,27 @@ func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshUR
 	}
 
 	return applicationSummaries, message, nil
+}
+
+func getPushTriggeredBy(pushEvent *github.PushEvent) string {
+	sender := pushEvent.GetSender()
+	if sender != nil {
+		return sender.GetLogin()
+	}
+
+	headCommit := pushEvent.GetHeadCommit()
+	if headCommit != nil {
+		author := headCommit.GetAuthor()
+		if author != nil {
+			return author.GetLogin()
+		}
+	}
+
+	pusher := pushEvent.GetPusher()
+	if pusher != nil {
+		return pusher.GetLogin()
+	}
+	return ""
 }
 
 func getMessageForJob(jobName, appName, branch, commitID string) string {

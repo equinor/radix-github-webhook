@@ -13,4 +13,7 @@ type JobSummary struct {
 
 	// CommitID the commit ID of the branch to build
 	CommitID string `json:"commitID"`
+
+	// TriggeredBy of the job
+	TriggeredBy string `json:"triggeredBy"`
 }
