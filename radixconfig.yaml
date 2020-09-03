@@ -29,9 +29,9 @@ spec:
       resources:
         requests:
           memory: "15Mi"
-          cpu: "5m"
+          cpu: "10m"
         limits:
-          memory: "30Mi"
+          memory: "1000Mi"
           cpu: "25m"
     - environment: prod
       variables:
@@ -41,5 +41,5 @@ spec:
           memory: "30Mi"
           cpu: "10m"
         limits:
-          memory: "60Mi"
+          memory: "1000Mi"
           cpu: "50m"
