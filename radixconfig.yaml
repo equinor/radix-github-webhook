@@ -31,8 +31,8 @@ spec:
           memory: "15Mi"
           cpu: "10m"
         limits:
-          memory: "1000Mi"
-          cpu: "25m"
+          memory: "15Mi"
+          cpu: "1000m"
     - environment: prod
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"
@@ -41,5 +41,5 @@ spec:
           memory: "30Mi"
           cpu: "10m"
         limits:
-          memory: "1000Mi"
-          cpu: "50m"
+          memory: "30Mi"
+          cpu: "1000m"
