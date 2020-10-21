@@ -22,3 +22,19 @@ Radix GitHub Webhook is installed as a Radix application in [script](https://git
 6. Edit the image name from `radix-github-webhook-webhook` to `radix-github-webhook` and tag from `latest` to `<imagetag>`
 7. Save and close
 8. Wait for pods to start.
+
+## Authentication
+
+Bearer token can be provided in two ways
+
+* In a file `/var/run/secrets/kubernetes.io/serviceaccount/token`
+* Environment variable `BEARER_TOKEN`
+
+if file does not exist - environment variable has being used
+
+## Debugging
+
+When debug locally together with other apps and services - local `radix-api` can be used
+* `USE_LOCAL_RADIX_API`
+  * `false`, `no` or not set - connecting to in-cluster `radix-api`
+  * `true` or `yes` - connecting to `radix-api`, running on `http://localhost:3002`
