@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/equinor/radix-github-webhook/handler"
 	"github.com/gorilla/mux"
@@ -14,10 +15,15 @@ import (
 )
 
 func getAPIServerEndpoint() string {
+	envUseLocalRadixApi := os.Getenv("USE_LOCAL_RADIX_API")
+	useLocalRadixApi := strings.EqualFold(envUseLocalRadixApi, "yes") || strings.EqualFold(envUseLocalRadixApi, "true")
+	if useLocalRadixApi {
+		return "http://localhost:3002/api"
+	}
+
 	apiServerPrefix := os.Getenv("API_SERVER_ENDPOINT_PREFIX")
 	clusterName := os.Getenv("RADIX_CLUSTERNAME")
 	dnsZone := os.Getenv("RADIX_DNS_ZONE")
-
 	return fmt.Sprintf("%s.%s.%s/api", apiServerPrefix, clusterName, dnsZone)
 }
 
@@ -33,7 +39,7 @@ func main() {
 
 	token, err := getServiceAccountToken()
 	if err != nil {
-		logrus.Fatalf("Unable to read token from file: %v", err)
+		logrus.Fatalf("Unable to read token from file: %v or from environment variable BEARER_TOKEN", err)
 	}
 
 	logrus.Infof("Listen for incoming events on port %s", *port)
@@ -71,12 +77,15 @@ func initializeFlagSet() *pflag.FlagSet {
 }
 
 func getServiceAccountToken() (string, error) {
-	b, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-	if err != nil {
-		return "", err
+	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err == nil {
+		return string(token), nil
 	}
-
-	return string(b), nil
+	envToken := os.Getenv("BEARER_TOKEN")
+	if len(envToken) != 0 {
+		return envToken, nil
+	}
+	return "", err
 }
 
 func parseFlagsFromArgs(fs *pflag.FlagSet) {
