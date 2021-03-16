@@ -24,6 +24,7 @@ spec:
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-dev"
     - environment: qa
+      runAsNonRoot: true
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-qa"
       resources:
