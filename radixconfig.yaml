@@ -35,6 +35,7 @@ spec:
           memory: "15Mi"
           cpu: "1000m"
     - environment: prod
+      runAsNonRoot: true
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"
       resources:
