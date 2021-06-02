@@ -1,6 +1,6 @@
 module github.com/equinor/radix-github-webhook
 
-go 1.13
+go 1.16
 
 require (
 	github.com/google/go-github/v35 v35.2.0
@@ -12,4 +12,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 )
 
-replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+replace (
+	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	golang.org/x/text => golang.org/x/text v0.3.6
+)
