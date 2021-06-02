@@ -13,7 +13,7 @@ import (
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/v28/github"
+	"github.com/google/go-github/v35/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
