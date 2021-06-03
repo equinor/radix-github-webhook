@@ -13,7 +13,7 @@ import (
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/v28/github"
+	"github.com/google/go-github/v35/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -214,7 +214,7 @@ func getMessageForJob(jobName, appName, branch, commitID string) string {
 func getBranch(pushEvent *github.PushEvent) string {
 	// Remove refs/heads from ref
 	ref := strings.Split(*pushEvent.Ref, "/")
-	return strings.Join(ref[2:len(ref)], "/")
+	return strings.Join(ref[2:], "/")
 }
 
 func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
