@@ -29,10 +29,10 @@ spec:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-qa"
       resources:
         requests:
-          memory: "15Mi"
+          memory: "30Mi"
           cpu: "10m"
         limits:
-          memory: "15Mi"
+          memory: "30Mi"
           cpu: "1000m"
     - environment: prod
       runAsNonRoot: true
@@ -40,8 +40,8 @@ spec:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"
       resources:
         requests:
-          memory: "30Mi"
+          memory: "75Mi"
           cpu: "10m"
         limits:
-          memory: "30Mi"
+          memory: "75Mi"
           cpu: "1000m"
