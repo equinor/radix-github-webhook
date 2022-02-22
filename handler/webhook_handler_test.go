@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/v35/github"
+	"github.com/google/go-github/v42/github"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )

@@ -15,9 +15,9 @@ import (
 )
 
 func getAPIServerEndpoint() string {
-	envUseLocalRadixApi := os.Getenv("USE_LOCAL_RADIX_API")
-	useLocalRadixApi := strings.EqualFold(envUseLocalRadixApi, "yes") || strings.EqualFold(envUseLocalRadixApi, "true")
-	if useLocalRadixApi {
+	envUseLocalRadixAPI := os.Getenv("USE_LOCAL_RADIX_API")
+	useLocalRadixAPI := strings.EqualFold(envUseLocalRadixAPI, "yes") || strings.EqualFold(envUseLocalRadixAPI, "true")
+	if useLocalRadixAPI {
 		return "http://localhost:3002/api"
 	}
 
