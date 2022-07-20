@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v45/github"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -135,7 +135,19 @@ func TestHandleWebhookEvents_PushEventOnMaster_SucceedsWithCorrectMessage(t *tes
 	response, err := triggerWebhook("push", payload, "AnySharedSecret")
 	assert.NoError(t, err, "HandleWebhookEvents - No error occured")
 
-	assert.Equal(t, getMessageForJob(anyJobName, "app-1", "master", commitID), response, "HandleWebhookEvents - Message not expected")
+	expected := getMessageForJob(anyJobName, "app-1", "master", commitID)
+	assert.Equal(t, expected, response, "HandleWebhookEvents - Message not expected")
+}
+
+func TestHandleWebhookEvents_PushEventWithRefDeleted_Fails(t *testing.T) {
+
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withDeleted(true).
+		withURL("git@github.com:equinor/repo-1.git").
+		BuildPushEventPayload()
+	_, err := triggerWebhook("push", payload, "AnySharedSecret")
+	assert.Error(t, err, "HandleWebhookEvents - Return error when deleted is true in payload")
 }
 
 func triggerWebhook(event string, payload []byte, sharedSecret string) (string, error) {
@@ -220,15 +232,17 @@ type GitHubPayloadBuilder interface {
 	withRef(string) GitHubPayloadBuilder
 	withAfter(string) GitHubPayloadBuilder
 	withURL(string) GitHubPayloadBuilder
+	withDeleted(deleted bool) GitHubPayloadBuilder
 	BuildPushEventPayload() []byte
 	BuildPingEventPayload() []byte
 	BuildPullRequestEventPayload() []byte
 }
 
 type gitHubPayloadBuilder struct {
-	ref   string
-	after string
-	url   string
+	ref     string
+	after   string
+	url     string
+	deleted *bool
 }
 
 // NewGitHubPayloadBuilder Constructor
@@ -251,41 +265,60 @@ func (pb *gitHubPayloadBuilder) withURL(url string) GitHubPayloadBuilder {
 	return pb
 }
 
-func (pb *gitHubPayloadBuilder) BuildPushEventPayload() []byte {
-	payload := `{
-		"ref": "#REF#",
-		"after": "#AFTER#",
-		"repository": {
-		  "ssh_url": "#SSHURL#"
-		}
-	}`
+func (pb *gitHubPayloadBuilder) withDeleted(deleted bool) GitHubPayloadBuilder {
+	pb.deleted = &deleted
+	return pb
+}
 
-	payload = strings.Replace(payload, "#REF#", pb.ref, 1)
-	payload = strings.Replace(payload, "#AFTER#", pb.after, 1)
-	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
-	return []byte(payload)
+func (pb *gitHubPayloadBuilder) BuildPushEventPayload() []byte {
+	type repo struct {
+		SSHUrl string `json:"ssh_url"`
+	}
+	type pushEvent struct {
+		Ref     string `json:"ref"`
+		After   string `json:"after"`
+		Deleted *bool  `json:"deleted,omitempty"`
+		Repo    repo   `json:"repository"`
+	}
+
+	event := pushEvent{Ref: pb.ref, After: pb.after, Deleted: pb.deleted, Repo: repo{SSHUrl: pb.url}}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		panic("failed to marshal json for test")
+	}
+	return payload
 }
 
 func (pb *gitHubPayloadBuilder) BuildPingEventPayload() []byte {
-	payload := `{
-		"hook": {
-		  "url": "#URL#"
-		}
-	}`
+	type hook struct {
+		URL string `json:"url"`
+	}
+	type pingEvent struct {
+		Hook hook `json:"hook"`
+	}
 
-	payload = strings.Replace(payload, "#URL#", pb.url, 1)
-	return []byte(payload)
+	event := pingEvent{Hook: hook{URL: pb.url}}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		panic("failed to marshal json for test")
+	}
+	return payload
 }
 
 func (pb *gitHubPayloadBuilder) BuildPullRequestEventPayload() []byte {
-	payload := `{
-		"repository": {
-		  "ssh_url": "#SSHURL#"
-		}
-	}`
+	type repo struct {
+		SSHUrl string `json:"ssh_url"`
+	}
+	type pullRequestEvent struct {
+		Repo repo `json:"repository"`
+	}
 
-	payload = strings.Replace(payload, "#SSHURL#", pb.url, 1)
-	return []byte(payload)
+	event := pullRequestEvent{Repo: repo{SSHUrl: pb.url}}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		panic("failed to marshal json for test")
+	}
+	return payload
 }
 
 func strPtr(s string) *string {

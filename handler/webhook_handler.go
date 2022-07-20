@@ -13,7 +13,7 @@ import (
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v45/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -67,7 +67,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 	if len(strings.TrimSpace(event)) == 0 {
 		metrics.IncreaseNotGithubEventCounter()
-		_fail(http.StatusBadRequest, fmt.Errorf("Not a github event"))
+		_fail(http.StatusBadRequest, errors.New("Not a github event"))
 		return
 	}
 
@@ -94,6 +94,11 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		triggeredBy := getPushTriggeredBy(e)
 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
+
+		if isDeleteRefEvent(e) {
+			_fail(http.StatusBadRequest, fmt.Errorf("Unable to handle deletion of %s", *e.Ref))
+			return
+		}
 
 		applicationSummaries, _, err := wh.validateCloneURL(req, body, sshURL)
 		if err != nil {
@@ -215,6 +220,14 @@ func getBranch(pushEvent *github.PushEvent) string {
 	// Remove refs/heads from ref
 	ref := strings.Split(*pushEvent.Ref, "/")
 	return strings.Join(ref[2:], "/")
+}
+
+func isDeleteRefEvent(pushEvent *github.PushEvent) bool {
+	var deleted bool
+	if pushEvent.Deleted != nil {
+		deleted = *pushEvent.Deleted
+	}
+	return deleted
 }
 
 func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
