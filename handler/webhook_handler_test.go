@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/equinor/radix-github-webhook/models"
@@ -395,73 +394,9 @@ func TestSHA256MAC_CorrectlyEncrypted(t *testing.T) {
 	assert.Equal(t, expected, actual, "SHA256HMAC - Incorrect encryption")
 }
 
-func triggerWebhook(event string, payload []byte, sharedSecret string) (res response, code int, err error) {
-	wh := NewWebHookHandler("token", NewAPIServerMock())
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("POST", "", bytes.NewReader(payload))
-	if err != nil {
-		return
-	}
-	r.Header.Add("X-GitHub-Event", event)
-	r.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte(sharedSecret), payload))
-	wh.handleEvent(w, r)
-	code = w.Code
-	err = json.Unmarshal(w.Body.Bytes(), &res)
-	return
-}
-
 type response struct {
 	Message string `json:"message"`
 	Error   string `json:"error"`
-}
-
-type APIServerMock struct {
-	radixRegistrations map[string][]*models.Application
-}
-
-func NewAPIServerMock() *APIServerMock {
-	radixRegistrations := make(map[string][]*models.Application)
-	app1 := models.NewApplicationBuilder().WithName("app-1").WithSharedSecret("AnySharedSecret").Build()
-	app2 := models.NewApplicationBuilder().WithName("app-2").WithSharedSecret("AnySharedSecret").Build()
-	app3 := models.NewApplicationBuilder().WithName("app-3").WithSharedSecret("AnySharedSecret3").Build()
-
-	radixRegistrations["git@github.com:equinor/repo-1.git"] = []*models.Application{app1}
-	radixRegistrations["git@github.com:equinor/repo-2.git"] = []*models.Application{app2, app3}
-
-	return &APIServerMock{
-		radixRegistrations: radixRegistrations}
-
-}
-
-func (api *APIServerMock) ShowApplications(bearerToken, url string) ([]*models.ApplicationSummary, error) {
-	applicationSummaries := make([]*models.ApplicationSummary, len(api.radixRegistrations[url]))
-	for index, application := range api.radixRegistrations[url] {
-		applicationSummaries[index] = &models.ApplicationSummary{Name: application.Registration.Name}
-	}
-
-	return applicationSummaries, nil
-}
-
-func (api *APIServerMock) GetApplication(bearerToken, appName string) (*models.Application, error) {
-	for _, applications := range api.radixRegistrations {
-		for _, application := range applications {
-			if strings.EqualFold(application.Registration.Name, appName) {
-				return application, nil
-			}
-		}
-	}
-
-	return nil, nil
-}
-
-func (api *APIServerMock) TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
-	return &models.JobSummary{
-		Name:        anyJobName,
-		AppName:     appName,
-		Branch:      branch,
-		CommitID:    commitID,
-		TriggeredBy: triggeredBy,
-	}, nil
 }
 
 // GitHubPayloadBuilder Handles construction of github payload
