@@ -44,20 +44,8 @@ func main() {
 
 	logrus.Infof("Listen for incoming events on port %s", *port)
 	wh := handler.NewWebHookHandler(token, radix.NewAPIServerStub(apiServerEndpoint))
-	server := router.New(wh.HandleWebhookEvents())
-	// wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
-
-	// router := mux.NewRouter()
-	// router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.WriteHeader(http.StatusOK)
-	// }).Methods("GET")
-	// router.Handle("/metrics", promhttp.Handler())
-	// router.Handle("/events/github", wh.HandleWebhookEvents())
-	// router.Handle("/", wh.HandleWebhookEvents())
-
-	http.Handle("/", server)
-
-	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), nil)
+	router := router.New(wh.HandleWebhookEvents())
+	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), router)
 
 	if err != nil {
 		logrus.Fatalf("Unable to start serving: %v", err)
