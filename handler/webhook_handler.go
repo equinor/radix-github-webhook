@@ -26,12 +26,24 @@ var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
 
 var (
 	notAGithubeventMessage          = "Not a github event"
-	unknownEventTypeMessage         = func(eventType string) string { return fmt.Sprintf("Unknown event type %s", eventType) }
+	unhandledEventTypeMessage       = func(eventType string) string { return fmt.Sprintf("Unhandled event type %s", eventType) }
 	unmatchedRepoMessage            = "Unable to match repo with any Radix registration"
 	multipleMatchingReposMessage    = "Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"
 	payloadSignatureMismatchMessage = "payload signature check failed"
-	webhookIncorrectSharedSecret    = func(appName string, err error) string {
+	webhookIncorrectConfiguration   = func(appName string, err error) string {
 		return fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", appName, err)
+	}
+	webhookCorrectConfiguration = func(appName string) string {
+		return fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", appName)
+	}
+	jobCreatedMessage = func(jobName, appName, branch, commitID string) string {
+		return fmt.Sprintf("Job %s started for %s on branch %s for commit %s", jobName, appName, branch, commitID)
+	}
+	refDeletionPushEvenUnsupportedMessage = func(refName string) string {
+		return fmt.Sprintf("Deletion of %s not supported, aborting", refName)
+	}
+	triggerPipelineErrorMessage = func(appName string, apiError error) string {
+		return fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", appName, apiError)
 	}
 )
 
@@ -108,7 +120,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
 		if isDeleteRefEvent(e) {
-			_succeedWithMessage(http.StatusAccepted, fmt.Sprintf("Deletion of %s not supported, aborting", *e.Ref))
+			_succeedWithMessage(http.StatusAccepted, refDeletionPushEvenUnsupportedMessage(*e.Ref))
 			return
 		}
 
@@ -127,13 +139,13 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 			metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 			if err != nil {
-				message = appendToMessage(message, fmt.Sprintf("Push failed for the Radix project %s. Error was: %s", applicationSummary.Name, err))
+				message = appendToMessage(message, triggerPipelineErrorMessage(applicationSummary.Name, err))
 				success = false
 				continue
 			}
 
 			success = true
-			message = appendToMessage(message, getMessageForJob(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
+			message = appendToMessage(message, jobCreatedMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 		}
 
 		if !success {
@@ -160,7 +172,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 	default:
 		metrics.IncreaseUnsupportedGithubEventTypeCounter()
-		_fail(http.StatusNotFound, errors.New(unknownEventTypeMessage(github.WebHookType(req))))
+		_fail(http.StatusBadRequest, errors.New(unhandledEventTypeMessage(github.WebHookType(req))))
 		return
 	}
 }
@@ -188,12 +200,12 @@ func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshUR
 
 		err = isValidSecret(req, body, *application.Registration.SharedSecret)
 		if err != nil {
-			message = appendToMessage(message, webhookIncorrectSharedSecret(application.Registration.Name, err))
+			message = appendToMessage(message, webhookIncorrectConfiguration(application.Registration.Name, err))
 			success = false
 			continue
 		}
 
-		message = appendToMessage(message, fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", application.Registration.Name))
+		message = appendToMessage(message, webhookCorrectConfiguration(application.Registration.Name))
 	}
 
 	if !success {
@@ -222,10 +234,6 @@ func getPushTriggeredBy(pushEvent *github.PushEvent) string {
 		return pusher.GetLogin()
 	}
 	return ""
-}
-
-func getMessageForJob(jobName, appName, branch, commitID string) string {
-	return fmt.Sprintf("Job %s started for %s on branch %s for commit %s", jobName, appName, branch, commitID)
 }
 
 func getBranch(pushEvent *github.PushEvent) string {

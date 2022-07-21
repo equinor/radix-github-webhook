@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-github/v45/github"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -50,7 +48,7 @@ func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
 	s.Equal(notAGithubeventMessage, res.Error)
 }
 
-func (s *handlerTestSuite) Test_UnknownEventType() {
+func (s *handlerTestSuite) Test_UnhandledEventType() {
 	payload := NewGitHubPayloadBuilder().
 		withURL("git@github.com:equinor/repo-1.git").
 		BuildPullRequestEventPayload()
@@ -59,10 +57,10 @@ func (s *handlerTestSuite) Test_UnknownEventType() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "pull_request")
 	router.New(sut).ServeHTTP(s.w, req)
-	s.Equal(http.StatusNotFound, s.w.Code)
+	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(unknownEventTypeMessage("pull_request"), res.Error)
+	s.Equal(unhandledEventTypeMessage("pull_request"), res.Error)
 }
 
 func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
@@ -119,6 +117,30 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 	s.ctrl.Finish()
 }
 
+func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	appName := "appname"
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withAfter(commitID).
+		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
+		BuildPingEventPayload()
+
+	appSummary := models.ApplicationSummary{Name: appName}
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(nil, errors.New("any error")).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "ping")
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal("any error", res.Error)
+	s.ctrl.Finish()
+}
+
 func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	appName := "appname"
 	payload := NewGitHubPayloadBuilder().
@@ -137,7 +159,210 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(webhookIncorrectSharedSecret(appName, errors.New(payloadSignatureMismatchMessage)), res.Error)
+	s.Equal(webhookIncorrectConfiguration(appName, errors.New(payloadSignatureMismatchMessage)), res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	appName := "appname"
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withAfter(commitID).
+		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
+		BuildPingEventPayload()
+
+	appSummary := models.ApplicationSummary{Name: appName}
+	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "ping")
+	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusOK, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(webhookCorrectConfiguration(appName), res.Message)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal("any error", res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, nil).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(unmatchedRepoMessage, res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventMultipleRepos() {
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(multipleMatchingReposMessage, res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
+	appName := "appname"
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+	appSummary := models.ApplicationSummary{Name: appName}
+	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("incorrectsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(webhookIncorrectConfiguration(appName, errors.New(payloadSignatureMismatchMessage)), res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
+	appName := "appname"
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	payload := NewGitHubPayloadBuilder().
+		withAfter(commitID).
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+	appSummary := models.ApplicationSummary{Name: appName}
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(nil, errors.New("any error")).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal("any error", res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
+	appName := "appname"
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	payload := NewGitHubPayloadBuilder().
+		withAfter(commitID).
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+	appSummary := models.ApplicationSummary{Name: appName}
+	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	apiError := errors.New("any error")
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline("token", appName, "master", commitID, "").Return(nil, apiError).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusBadRequest, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(triggerPipelineErrorMessage(appName, apiError), res.Error)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
+	appName := "appname"
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	payload := NewGitHubPayloadBuilder().
+		withAfter(commitID).
+		withRef("refs/heads/master").
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+	appSummary := models.ApplicationSummary{Name: appName}
+	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	jobSummary := models.JobSummary{Name: "jobname", AppName: "jobappname", Branch: "jobbranchname", CommitID: "jobcommitID", TriggeredBy: "anyuser"}
+	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline("token", appName, "master", commitID, "").Return(&jobSummary, nil).Times(1)
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusOK, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(jobCreatedMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
+	s.ctrl.Finish()
+}
+
+func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
+	ref := "refs/heads/master"
+	payload := NewGitHubPayloadBuilder().
+		withDeleted(true).
+		withRef(ref).
+		withURL("git@github.com:equinor/repo-4.git").
+		BuildPushEventPayload()
+
+	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("X-GitHub-Event", "push")
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusAccepted, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(refDeletionPushEvenUnsupportedMessage(ref), res.Message)
 	s.ctrl.Finish()
 }
 
@@ -168,120 +393,6 @@ func TestSHA256MAC_CorrectlyEncrypted(t *testing.T) {
 	actual := SHA256HMAC(key, message)
 
 	assert.Equal(t, expected, actual, "SHA256HMAC - Incorrect encryption")
-}
-
-// func TestHandleWebhookEvents_PullRequestEvent(t *testing.T) {
-// 	payload := NewGitHubPayloadBuilder().
-// 		withURL("git@github.com:equinor/repo-1.git").
-// 		BuildPullRequestEventPayload()
-// 	response, code, err := triggerWebhook("pull_request", payload, "AnySharedSecret")
-// 	require.NoError(t, err)
-// 	assert.Equal(t, http.StatusNotFound, code)
-// 	assert.NotEmpty(t, response.Error)
-// }
-
-// func TestHandleWebhookEvents_PingEventUnmatchedRepo(t *testing.T) {
-// 	payload := NewGitHubPayloadBuilder().
-// 		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
-// 		BuildPingEventPayload()
-// 	_, code, err := triggerWebhook("ping", payload, "AnySharedSecret")
-// 	require.NoError(t, err)
-// 	assert.Equal(t, http.StatusBadRequest, code)
-// }
-
-// func TestHandleWebhookEvents_PingEventMatchedMultipleRepos(t *testing.T) {
-// 	payload := NewGitHubPayloadBuilder().
-// 		withURL("https://api.github.com/repos/equinor/repo-2/hooks/12345678").
-// 		BuildPingEventPayload()
-// 	_, code, err := triggerWebhook("ping", payload, "AnySharedSecret")
-// 	require.NoError(t, err)
-// 	assert.Equal(t, http.StatusBadRequest, code)
-// }
-
-// func TestHandleWebhookEvents_PingEventWithIncorrectSecret(t *testing.T) {
-// 	payload := NewGitHubPayloadBuilder().
-// 		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
-// 		BuildPingEventPayload()
-// 	_, code, err := triggerWebhook("ping", payload, "IncorrectSecret")
-// 	require.NoError(t, err)
-// 	assert.Equal(t, http.StatusBadRequest, code)
-// }
-
-func TestHandleWebhookEvents_PingEventWithCorrectSecret_SucceedsWithCorrectMessage(t *testing.T) {
-	const commitID = "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withAfter(commitID).
-		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
-		BuildPingEventPayload()
-	response, code, err := triggerWebhook("ping", payload, "AnySharedSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, code)
-	expected := fmt.Sprintf("Webhook is configured correctly with for the Radix project %s", "app-1")
-	assert.Equal(t, expected, response.Message, "HandleWebhookEvents - Message not expected")
-}
-
-func TestHandleWebhookEvents_PushEventUnmatchedRepo(t *testing.T) {
-	const commitID = "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withAfter(commitID).
-		withURL("git@github.com:equinor/repo-4.git").
-		BuildPushEventPayload()
-	_, code, err := triggerWebhook("push", payload, "AnySharedSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, code)
-}
-
-func TestHandleWebhookEvents_PushEventMatchedMultipleRepos(t *testing.T) {
-	const commitID = "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withAfter(commitID).
-		withURL("git@github.com:equinor/repo-2.git").
-		BuildPushEventPayload()
-	_, code, err := triggerWebhook("push", payload, "AnySharedSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, code)
-}
-
-func TestHandleWebhookEvents_PushEventOnMasterWithIncorrectSecret(t *testing.T) {
-	const commitID = "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withAfter(commitID).
-		withURL("git@github.com:equinor/repo-1.git").
-		BuildPushEventPayload()
-	_, code, err := triggerWebhook("push", payload, "IncorrectSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, code)
-}
-
-func TestHandleWebhookEvents_PushEventOnMaster_SucceedsWithCorrectMessage(t *testing.T) {
-	const commitID = "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withAfter(commitID).
-		withURL("git@github.com:equinor/repo-1.git").
-		BuildPushEventPayload()
-	response, code, err := triggerWebhook("push", payload, "AnySharedSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, code)
-	expected := getMessageForJob(anyJobName, "app-1", "master", commitID)
-	assert.Equal(t, expected, response.Message, "HandleWebhookEvents - Message not expected")
-}
-
-func TestHandleWebhookEvents_PushEventWithRefDeleted(t *testing.T) {
-
-	payload := NewGitHubPayloadBuilder().
-		withRef("refs/heads/master").
-		withDeleted(true).
-		withURL("git@github.com:equinor/repo-1.git").
-		BuildPushEventPayload()
-	response, code, err := triggerWebhook("push", payload, "AnySharedSecret")
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusAccepted, code)
-	assert.NotEmpty(t, response.Message)
 }
 
 func triggerWebhook(event string, payload []byte, sharedSecret string) (res response, code int, err error) {
