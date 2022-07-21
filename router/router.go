@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// New creates a mux router for handling Github webhook requests
 func New(webHookHandler http.Handler) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
