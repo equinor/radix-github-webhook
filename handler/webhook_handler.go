@@ -244,6 +244,7 @@ func getBranch(pushEvent *github.PushEvent) string {
 
 func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
 	var deleted bool
+	// Deleted refers to the Ref in the Push event. See https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#push
 	if pushEvent.Deleted != nil {
 		deleted = *pushEvent.Deleted
 	}
