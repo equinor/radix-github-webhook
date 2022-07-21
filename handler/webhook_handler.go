@@ -119,7 +119,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
-		if isDeleteRefEvent(e) {
+		if isPushEventForRefDeletion(e) {
 			_succeedWithMessage(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
 			return
 		}
@@ -242,7 +242,7 @@ func getBranch(pushEvent *github.PushEvent) string {
 	return strings.Join(ref[2:], "/")
 }
 
-func isDeleteRefEvent(pushEvent *github.PushEvent) bool {
+func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
 	var deleted bool
 	if pushEvent.Deleted != nil {
 		deleted = *pushEvent.Deleted
