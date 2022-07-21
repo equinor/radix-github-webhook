@@ -27,9 +27,9 @@ var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
 var (
 	notAGithubEventMessage          = "Not a github event"
 	unhandledEventTypeMessage       = func(eventType string) string { return fmt.Sprintf("Unhandled event type %s", eventType) }
-	unmatchedRepoMessage            = "Unable to match repo with any Radix registration"
-	multipleMatchingReposMessage    = "Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"
-	payloadSignatureMismatchMessage = "payload signature check failed"
+	unmatchedRepoMessage            = "Unable to match repo with any Radix application"
+	multipleMatchingReposMessage    = "Unable to match repo with unique Radix application"
+	payloadSignatureMismatchMessage = "Payload signature check failed"
 	webhookIncorrectConfiguration   = func(appName string, err error) string {
 		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. Error was: %s", appName, err)
 	}
