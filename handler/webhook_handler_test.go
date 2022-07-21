@@ -323,7 +323,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(triggerPipelineErrorMessage(appName, apiError), res.Error)
+	s.Equal(createPipelineJobErrorMessage(appName, apiError), res.Error)
 	s.ctrl.Finish()
 }
 
@@ -350,7 +350,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(jobCreatedMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
 
