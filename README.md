@@ -2,6 +2,12 @@
 
 Support GitHub Webhook to trigger pipeline build through the API server
 
+## Development
+
+[Github webhook development docs](https://docs.github.com/en/developers/webhooks-and-events/webhooks/about-webhooks)
+
+[Github webhook integration best practices](https://docs.github.com/en/github-ae@latest/rest/guides/best-practices-for-integrators#use-appropriate-http-status-codes-when-responding-to-github)
+
 ## Tips on debugging
 
 Install and run *ngrok* to expose localhost by `ngrok http 3001`. The Webhook in GitHub should point to the *ngrok* address.
