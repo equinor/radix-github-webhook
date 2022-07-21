@@ -124,51 +124,35 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		applicationSummaries, _, err := wh.validateCloneURL(req, body, sshURL)
+		applicationSummary, err := wh.getApplication(req, body, sshURL)
 		if err != nil {
 			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
 			_fail(http.StatusBadRequest, err)
 			return
 		}
 
-		var message string
-		success := true
-
-		for _, applicationSummary := range applicationSummaries {
-			jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
-
-			metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-			if err != nil {
-				message = appendToMessage(message, createPipelineJobErrorMessage(applicationSummary.Name, err))
-				success = false
-				continue
-			}
-
-			success = true
-			message = appendToMessage(message, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
-		}
-
-		if !success {
+		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
+		jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
+		if err != nil {
 			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
-			_fail(http.StatusBadRequest, errors.New(message))
+			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
 		}
 
-		_succeedWithMessage(http.StatusOK, message)
+		_succeedWithMessage(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 
 	case *github.PingEvent:
 		sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
 		metrics.IncreasePingGithubEventTypeCounter(sshURL)
 
-		_, message, err := wh.validateCloneURL(req, body, sshURL)
-
+		applicationSummary, err := wh.getApplication(req, body, sshURL)
 		if err != nil {
 			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
 			_fail(http.StatusBadRequest, err)
 			return
 		}
 
-		_succeedWithMessage(http.StatusOK, message)
+		_succeedWithMessage(http.StatusOK, webhookCorrectConfiguration(applicationSummary.Name))
 
 	default:
 		metrics.IncreaseUnsupportedGithubEventTypeCounter()
@@ -177,42 +161,31 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshURL string) ([]*models.ApplicationSummary, string, error) {
+func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL string) (*models.ApplicationSummary, error) {
 	applicationSummaries, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, sshURL)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	if len(applicationSummaries) < 1 {
-		return nil, "", errors.New(unmatchedRepoMessage)
-	} else if len(applicationSummaries) > 1 {
-		return nil, "", errors.New(multipleMatchingReposMessage)
+	if len(applicationSummaries) == 0 {
+		return nil, errors.New(unmatchedRepoMessage)
+	}
+	if len(applicationSummaries) > 1 {
+		return nil, errors.New(multipleMatchingReposMessage)
 	}
 
-	var message string
-	success := true
-
-	for _, applicationSummary := range applicationSummaries {
-		application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
-		if err != nil {
-			return nil, "", err
-		}
-
-		err = isValidSecret(req, body, *application.Registration.SharedSecret)
-		if err != nil {
-			message = appendToMessage(message, webhookIncorrectConfiguration(application.Registration.Name, err))
-			success = false
-			continue
-		}
-
-		message = appendToMessage(message, webhookCorrectConfiguration(application.Registration.Name))
+	applicationSummary := applicationSummaries[0]
+	application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
+	if err != nil {
+		return nil, err
 	}
 
-	if !success {
-		return nil, "", errors.New(message)
+	err = isValidSecret(req, body, *application.Registration.SharedSecret)
+	if err != nil {
+		return nil, errors.New(webhookIncorrectConfiguration(application.Registration.Name, err))
 	}
 
-	return applicationSummaries, message, nil
+	return applicationSummary, nil
 }
 
 func getPushTriggeredBy(pushEvent *github.PushEvent) string {
