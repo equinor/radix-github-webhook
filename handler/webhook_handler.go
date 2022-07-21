@@ -25,7 +25,7 @@ var pingRepoPattern = regexp.MustCompile(".*github.com/repos/(.*?)")
 var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
 
 var (
-	notAGithubEventMessage          = "Not a github event"
+	notAGithubEventMessage          = "Not a Github event"
 	unhandledEventTypeMessage       = func(eventType string) string { return fmt.Sprintf("Unhandled event type %s", eventType) }
 	unmatchedRepoMessage            = "Unable to match repo with any Radix application"
 	multipleMatchingReposMessage    = "Unable to match repo with unique Radix application"
