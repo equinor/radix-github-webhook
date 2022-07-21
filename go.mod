@@ -3,6 +3,7 @@ module github.com/equinor/radix-github-webhook
 go 1.17
 
 require (
+	github.com/golang/mock v1.4.4
 	github.com/google/go-github/v45 v45.0.0
 	github.com/gorilla/mux v1.8.0
 	github.com/pkg/errors v0.9.1

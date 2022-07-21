@@ -76,3 +76,8 @@ endif
 
 .PHONY: bootstrap
 bootstrap: vendor
+
+.PHONY: mocks
+mocks:	
+	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
+	

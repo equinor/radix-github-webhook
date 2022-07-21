@@ -2,7 +2,7 @@ package handler
 
 import (
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -13,15 +13,27 @@ import (
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
+	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/google/go-github/v45/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-const hubSignatureHeader = "X-Hub-Signature"
+const hubSignatureHeader = "X-Hub-Signature-256"
 
 var pingRepoPattern = regexp.MustCompile(".*github.com/repos/(.*?)")
 var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
+
+var (
+	notAGithubeventMessage          = "Not a github event"
+	unknownEventTypeMessage         = func(eventType string) string { return fmt.Sprintf("Unknown event type %s", eventType) }
+	unmatchedRepoMessage            = "Unable to match repo with any Radix registration"
+	multipleMatchingReposMessage    = "Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"
+	payloadSignatureMismatchMessage = "payload signature check failed"
+	webhookIncorrectSharedSecret    = func(appName string, err error) string {
+		return fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", appName, err)
+	}
+)
 
 // WebhookResponse The response structure
 type WebhookResponse struct {
@@ -34,11 +46,11 @@ type WebhookResponse struct {
 // WebHookHandler Instance
 type WebHookHandler struct {
 	ServiceAccountBearerToken string
-	apiServer                 APIServer
+	apiServer                 radix.APIServer
 }
 
 // NewWebHookHandler Constructor
-func NewWebHookHandler(token string, apiServer APIServer) *WebHookHandler {
+func NewWebHookHandler(token string, apiServer radix.APIServer) *WebHookHandler {
 	return &WebHookHandler{
 		token,
 		apiServer,
@@ -60,14 +72,14 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		fail(w, event, statusCode, err)
 	}
 
-	_succeedWithMessage := func(message string) {
+	_succeedWithMessage := func(statusCode int, message string) {
 		log.Infof("Success: %s", message)
-		succeedWithMessage(w, event, message)
+		succeedWithMessage(w, event, statusCode, message)
 	}
 
 	if len(strings.TrimSpace(event)) == 0 {
 		metrics.IncreaseNotGithubEventCounter()
-		_fail(http.StatusBadRequest, errors.New("Not a github event"))
+		_fail(http.StatusBadRequest, errors.New(notAGithubeventMessage))
 		return
 	}
 
@@ -96,7 +108,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
 		if isDeleteRefEvent(e) {
-			_fail(http.StatusBadRequest, fmt.Errorf("Unable to handle deletion of %s", *e.Ref))
+			_succeedWithMessage(http.StatusAccepted, fmt.Sprintf("Deletion of %s not supported, aborting", *e.Ref))
 			return
 		}
 
@@ -130,7 +142,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		_succeedWithMessage(message)
+		_succeedWithMessage(http.StatusOK, message)
 
 	case *github.PingEvent:
 		sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
@@ -144,11 +156,11 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		_succeedWithMessage(message)
+		_succeedWithMessage(http.StatusOK, message)
 
 	default:
 		metrics.IncreaseUnsupportedGithubEventTypeCounter()
-		_fail(http.StatusNotFound, fmt.Errorf("Unknown event type %s ", github.WebHookType(req)))
+		_fail(http.StatusNotFound, errors.New(unknownEventTypeMessage(github.WebHookType(req))))
 		return
 	}
 }
@@ -160,9 +172,9 @@ func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshUR
 	}
 
 	if len(applicationSummaries) < 1 {
-		return nil, "", errors.New("Unable to match repo with any Radix registration")
+		return nil, "", errors.New(unmatchedRepoMessage)
 	} else if len(applicationSummaries) > 1 {
-		return nil, "", errors.New("Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo")
+		return nil, "", errors.New(multipleMatchingReposMessage)
 	}
 
 	var message string
@@ -176,7 +188,7 @@ func (wh *WebHookHandler) validateCloneURL(req *http.Request, body []byte, sshUR
 
 		err = isValidSecret(req, body, *application.Registration.SharedSecret)
 		if err != nil {
-			message = appendToMessage(message, fmt.Sprintf("Webhook is not configured correctly for the Radix project %s. Error was: %s", application.Registration.Name, err))
+			message = appendToMessage(message, webhookIncorrectSharedSecret(application.Registration.Name, err))
 			success = false
 			continue
 		}
@@ -254,7 +266,8 @@ func getSSHUrlFromPingURL(pingURL string) string {
 	return fmt.Sprintf("git@github.com:%s.git", fullName)
 }
 
-func succeedWithMessage(w http.ResponseWriter, event, message string) {
+func succeedWithMessage(w http.ResponseWriter, event string, statusCode int, message string) {
+	w.WriteHeader(statusCode)
 	render(w, WebhookResponse{
 		Ok:      true,
 		Event:   event,
@@ -285,20 +298,20 @@ func render(w http.ResponseWriter, v interface{}) {
 //
 // validateSignature compares the salted digest in the header with our own computing of the body.
 func validateSignature(signature, secretKey string, payload []byte) error {
-	sum := SHA1HMAC([]byte(secretKey), payload)
+	sum := SHA256HMAC([]byte(secretKey), payload)
 	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
 		log.Printf("Expected signature %q (sum), got %q (hub-signature)", sum, signature)
-		return errors.New("payload signature check failed")
+		return errors.New(payloadSignatureMismatchMessage)
 	}
 	return nil
 }
 
-// SHA1HMAC computes the GitHub SHA1 HMAC.
-func SHA1HMAC(salt, message []byte) string {
-	// GitHub creates a SHA1 HMAC, where the key is the GitHub secret and the
+// SHA256HMAC computes the GitHub SHA256 HMAC.
+func SHA256HMAC(key, message []byte) string {
+	// GitHub creates a SHA256 HMAC, where the key is the GitHub secret and the
 	// message is the JSON body.
-	digest := hmac.New(sha1.New, salt)
+	digest := hmac.New(sha256.New, key)
 	digest.Write(message)
 	sum := digest.Sum(nil)
-	return fmt.Sprintf("sha1=%x", sum)
+	return fmt.Sprintf("sha256=%x", sum)
 }

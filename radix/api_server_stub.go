@@ -1,4 +1,4 @@
-package handler
+package radix
 
 import (
 	"bytes"
@@ -12,13 +12,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
-
-// APIServer Stub methods in order to mock endpoints
-type APIServer interface {
-	ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error)
-	GetApplication(bearerToken, appName string) (*models.Application, error)
-	TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error)
-}
 
 const buildDeployPipeline = "build-deploy"
 const getApplicationSummariesEndPointPattern = "/v1/applications?sshRepo=%s"

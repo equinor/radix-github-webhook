@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/equinor/radix-github-webhook/handler"
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/equinor/radix-github-webhook/radix"
+	"github.com/equinor/radix-github-webhook/router"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
@@ -43,17 +43,19 @@ func main() {
 	}
 
 	logrus.Infof("Listen for incoming events on port %s", *port)
-	wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
+	wh := handler.NewWebHookHandler(token, radix.NewAPIServerStub(apiServerEndpoint))
+	server := router.New(wh.HandleWebhookEvents())
+	// wh := handler.NewWebHookHandler(token, handler.NewAPIServerStub(apiServerEndpoint))
 
-	router := mux.NewRouter()
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}).Methods("GET")
-	router.Handle("/metrics", promhttp.Handler())
-	router.Handle("/events/github", wh.HandleWebhookEvents())
-	router.Handle("/", wh.HandleWebhookEvents())
+	// router := mux.NewRouter()
+	// router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.WriteHeader(http.StatusOK)
+	// }).Methods("GET")
+	// router.Handle("/metrics", promhttp.Handler())
+	// router.Handle("/events/github", wh.HandleWebhookEvents())
+	// router.Handle("/", wh.HandleWebhookEvents())
 
-	http.Handle("/", router)
+	http.Handle("/", server)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), nil)
 
