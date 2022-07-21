@@ -2,8 +2,11 @@ package handler
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,8 +20,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const anyJobName = "anyJobName"
-
 func Test_HandlerTestSuite(t *testing.T) {
 	suite.Run(t, new(handlerTestSuite))
 }
@@ -28,6 +29,13 @@ type handlerTestSuite struct {
 	apiServer *radix.MockAPIServer
 	w         *httptest.ResponseRecorder
 	ctrl      *gomock.Controller
+}
+
+func (*handlerTestSuite) computeSignature(key, message []byte) string {
+	digest := hmac.New(sha256.New, key)
+	digest.Write(message)
+	sum := digest.Sum(nil)
+	return fmt.Sprintf("sha256=%x", sum)
 }
 
 func (s *handlerTestSuite) SetupTest() {
@@ -44,7 +52,7 @@ func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(notAGithubeventMessage, res.Error)
+	s.Equal(notAGithubEventMessage, res.Error)
 }
 
 func (s *handlerTestSuite) Test_UnhandledEventType() {
@@ -153,7 +161,7 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "ping")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("incorrectsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
@@ -179,7 +187,7 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "ping")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
@@ -259,7 +267,7 @@ func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "push")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("incorrectsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
@@ -283,7 +291,7 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "push")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
@@ -310,7 +318,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "push")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
@@ -337,7 +345,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("X-GitHub-Event", "push")
-	req.Header.Add("X-Hub-Signature-256", SHA256HMAC([]byte("sharedsecret"), payload))
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
@@ -361,7 +369,7 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 	s.Equal(http.StatusAccepted, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(refDeletionPushEvenUnsupportedMessage(ref), res.Message)
+	s.Equal(refDeletionPushEventUnsupportedMessage(ref), res.Message)
 	s.ctrl.Finish()
 }
 

@@ -25,7 +25,7 @@ var pingRepoPattern = regexp.MustCompile(".*github.com/repos/(.*?)")
 var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
 
 var (
-	notAGithubeventMessage          = "Not a github event"
+	notAGithubEventMessage          = "Not a github event"
 	unhandledEventTypeMessage       = func(eventType string) string { return fmt.Sprintf("Unhandled event type %s", eventType) }
 	unmatchedRepoMessage            = "Unable to match repo with any Radix registration"
 	multipleMatchingReposMessage    = "Unable to match repo with unique Radix registration. Right now we only can handle one registration per repo"
@@ -39,7 +39,7 @@ var (
 	jobCreatedMessage = func(jobName, appName, branch, commitID string) string {
 		return fmt.Sprintf("Job %s started for %s on branch %s for commit %s", jobName, appName, branch, commitID)
 	}
-	refDeletionPushEvenUnsupportedMessage = func(refName string) string {
+	refDeletionPushEventUnsupportedMessage = func(refName string) string {
 		return fmt.Sprintf("Deletion of %s not supported, aborting", refName)
 	}
 	triggerPipelineErrorMessage = func(appName string, apiError error) string {
@@ -91,7 +91,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 
 	if len(strings.TrimSpace(event)) == 0 {
 		metrics.IncreaseNotGithubEventCounter()
-		_fail(http.StatusBadRequest, errors.New(notAGithubeventMessage))
+		_fail(http.StatusBadRequest, errors.New(notAGithubEventMessage))
 		return
 	}
 
@@ -120,7 +120,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
 		if isDeleteRefEvent(e) {
-			_succeedWithMessage(http.StatusAccepted, refDeletionPushEvenUnsupportedMessage(*e.Ref))
+			_succeedWithMessage(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
 			return
 		}
 
