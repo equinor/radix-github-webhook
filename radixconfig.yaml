@@ -10,7 +10,6 @@ spec:
   - name: qa
     build:
       from: master
-  - name: dev
   components:
   - name: "webhook"
     src: "."
@@ -20,9 +19,6 @@ spec:
       port: 3001
     public: true
     environmentConfig:
-    - environment: dev
-      variables:
-        API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-dev"
     - environment: qa
       runAsNonRoot: true
       variables:
