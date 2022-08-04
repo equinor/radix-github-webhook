@@ -72,7 +72,7 @@ func (s *handlerTestSuite) Test_UnhandledEventType() {
 
 func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
+		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
 	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
@@ -90,7 +90,7 @@ func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 
 func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
+		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
 	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, nil).Times(1)
@@ -108,7 +108,7 @@ func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 
 func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
+		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
 	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
@@ -130,7 +130,7 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
+		withURL("git@github.com:equinor/repo-1.git").
 		BuildPingEventPayload()
 
 	appSummary := models.ApplicationSummary{Name: appName}
@@ -151,7 +151,7 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	appName := "appname"
 	payload := NewGitHubPayloadBuilder().
-		withURL("https://api.github.com/repos/equinor/repo-4/hooks/12345678").
+		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
@@ -176,7 +176,7 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withAfter(commitID).
-		withURL("https://api.github.com/repos/equinor/repo-1/hooks/12345678").
+		withURL("git@github.com:equinor/repo-1.git").
 		BuildPingEventPayload()
 
 	appSummary := models.ApplicationSummary{Name: appName}
@@ -379,20 +379,6 @@ func Test_GetBranch_RemovesRefsHead(t *testing.T) {
 	assert.Equal(t, "hotfix/api/refs/heads/fix1", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")}))
 }
 
-func Test_get_radix_operator_repo_ssh_url_by_ping_url(t *testing.T) {
-	pingURL := "https://api.github.com/repos/equinor/radix-operator/hooks/50561858"
-	url := getSSHUrlFromPingURL(pingURL)
-
-	assert.Equal(t, "git@github.com:equinor/radix-operator.git", url)
-}
-
-func Test_get_priv_repo_ssh_url_by_ping_url(t *testing.T) {
-	pingURL := "https://api.github.com/repos/keaaa/go-roman/hooks/9917077"
-	url := getSSHUrlFromPingURL(pingURL)
-
-	assert.Equal(t, "git@github.com:keaaa/go-roman.git", url)
-}
-
 func TestSHA256MAC_CorrectlyEncrypted(t *testing.T) {
 	key := []byte("Any shared secret")
 	message := []byte("Any message body\n")
@@ -470,14 +456,14 @@ func (pb *gitHubPayloadBuilder) BuildPushEventPayload() []byte {
 }
 
 func (pb *gitHubPayloadBuilder) BuildPingEventPayload() []byte {
-	type hook struct {
-		URL string `json:"url"`
+	type repo struct {
+		SSHUrl string `json:"ssh_url"`
 	}
 	type pingEvent struct {
-		Hook hook `json:"hook"`
+		Repo repo `json:"repository"`
 	}
 
-	event := pingEvent{Hook: hook{URL: pb.url}}
+	event := pingEvent{Repo: repo{SSHUrl: pb.url}}
 	payload, err := json.Marshal(event)
 	if err != nil {
 		panic("failed to marshal json for test")
