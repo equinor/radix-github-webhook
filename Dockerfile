@@ -1,11 +1,11 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.18.5-alpine3.16 as builder
 
 ENV GO111MODULE=on
 
 RUN apk update && \
     apk add ca-certificates  && \
     apk add --no-cache gcc musl-dev && \
-    go get -u golang.org/x/lint/golint
+    go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
 
 WORKDIR /go/src/github.com/equinor/radix-github-webhook/
 
@@ -15,8 +15,8 @@ RUN go mod download
 
 COPY . .
 # run tests and linting
-RUN golint `go list ./...` && \
-    go vet `go list ./...` && \
+RUN staticcheck ./... && \
+    go vet ./... && \
     CGO_ENABLED=0 GOOS=linux go test `go list ./...`
 
 # build

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/equinor/radix-github-webhook/metrics"
@@ -20,9 +19,6 @@ import (
 )
 
 const hubSignatureHeader = "X-Hub-Signature-256"
-
-var pingRepoPattern = regexp.MustCompile(".*github.com/repos/(.*?)")
-var pingHooksPattern = regexp.MustCompile("/hooks/[0-9]*")
 
 var (
 	notAGithubEventMessage          = "Not a Github event"
@@ -99,14 +95,14 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		metrics.IncreaseFailedParsingCounter()
-		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
 		return
 	}
 
 	payload, err := github.ParseWebHook(github.WebHookType(req), body)
 	if err != nil {
 		metrics.IncreaseFailedParsingCounter()
-		_fail(http.StatusBadRequest, fmt.Errorf("Could not parse webhook: err=%s ", err))
+		_fail(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
 		return
 	}
 
@@ -142,7 +138,8 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		_succeedWithMessage(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 
 	case *github.PingEvent:
-		sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
+		// sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
+		sshURL := e.Repo.GetSSHURL()
 		metrics.IncreasePingGithubEventTypeCounter(sshURL)
 
 		applicationSummary, err := wh.getApplication(req, body, sshURL)
@@ -230,21 +227,6 @@ func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
 	}
 
 	return nil
-}
-
-func appendToMessage(message, messageToAppend string) string {
-	if strings.TrimSpace(message) != "" {
-		message += ". "
-	}
-
-	message += messageToAppend
-	return message
-}
-
-func getSSHUrlFromPingURL(pingURL string) string {
-	fullName := pingRepoPattern.ReplaceAllString(pingURL, "")
-	fullName = pingHooksPattern.ReplaceAllString(fullName, "")
-	return fmt.Sprintf("git@github.com:%s.git", fullName)
 }
 
 func succeedWithMessage(w http.ResponseWriter, event string, statusCode int, message string) {
