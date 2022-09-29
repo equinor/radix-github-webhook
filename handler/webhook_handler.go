@@ -292,7 +292,7 @@ func render(w http.ResponseWriter, v interface{}) {
 func validateSignature(signature, secretKey string, payload []byte) error {
 	sum := SHA256HMAC([]byte(secretKey), payload)
 	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
-		log.Printf("Expected signature does not mutch to received event signature")
+		log.Printf("Expected signature does not match to received event signature")
 		return errors.New(payloadSignatureMismatchMessage)
 	}
 	return nil
