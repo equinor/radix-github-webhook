@@ -120,7 +120,7 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(multipleMatchingReposMessage, res.Error)
+	s.Equal(multipleMatchingReposMessageWithoutAppName, res.Error)
 	s.ctrl.Finish()
 }
 
@@ -216,25 +216,93 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 }
 
 func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
+	type expectedAppDetails struct {
+		token   string
+		appName string
+	}
+	scenarios := []struct {
+		name             string
+		apps             []*models.ApplicationSummary
+		url              string
+		expectAppDetails []expectedAppDetails
+		expectedHttpCode int
+		expectedError    string
+	}{
+		{
+			name:             "unmatched repo for multiple apps without appName",
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			url:              "/",
+			expectedHttpCode: http.StatusBadRequest,
+			expectedError:    multipleMatchingReposMessageWithoutAppName,
+		},
+		{
+			name:             "unmatched repo for multiple apps by appName",
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			url:              "/?appName=appName3",
+			expectedHttpCode: http.StatusBadRequest,
+			expectedError:    unmatchedAppForMultipleMatchingReposMessage,
+		},
+		{
+			name:             "unmatched repo for single apps by appName",
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}},
+			url:              "/?appName=appName3",
+			expectedHttpCode: http.StatusBadRequest,
+			expectedError:    unmatchedRepoMessageByAppName,
+		},
+		{
+			name:             "matched repo for single apps by appName",
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}},
+			url:              "/?appName=appName1",
+			expectAppDetails: []expectedAppDetails{{token: "token", appName: "appName1"}},
+			expectedHttpCode: http.StatusOK,
+			expectedError:    "",
+		},
+		{
+			name:             "matched repo for multiple apps by appName",
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			url:              "/?appName=appName2",
+			expectAppDetails: []expectedAppDetails{{token: "token", appName: "appName2"}},
+			expectedHttpCode: http.StatusOK,
+			expectedError:    "",
+		},
+	}
+	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withURL("git@github.com:equinor/repo-4.git").
+		withAfter(commitID).
 		BuildPushEventPayload()
+	const sharedSecret = "sharedsecret"
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, nil).Times(1)
-
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
-	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
-	req.Header.Add("X-GitHub-Event", "push")
-	router.New(sut).ServeHTTP(s.w, req)
-	s.Equal(http.StatusBadRequest, s.w.Code)
-	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(unmatchedRepoMessage, res.Error)
-	s.ctrl.Finish()
+	for _, scenario := range scenarios {
+		s.T().Logf("Test: %s", scenario.name)
+		s.w = httptest.NewRecorder()
+		s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(scenario.apps, nil).Times(1)
+		for _, expectAppDetail := range scenario.expectAppDetails {
+			appDetail := models.NewApplicationBuilder().WithName(expectAppDetail.appName).WithSharedSecret(sharedSecret).Build()
+			s.apiServer.EXPECT().GetApplication(expectAppDetail.token, expectAppDetail.appName).
+				Return(appDetail, nil).
+				Times(1)
+			jobSummary := models.JobSummary{Name: "jobname", AppName: expectAppDetail.appName, Branch: "master", CommitID: commitID, TriggeredBy: ""}
+			s.apiServer.EXPECT().
+				TriggerPipeline(expectAppDetail.token, expectAppDetail.appName, "master", commitID, "").
+				Return(&jobSummary, nil).
+				Times(1)
+		}
+		sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+		req, _ := http.NewRequest("POST", scenario.url, bytes.NewReader(payload))
+		req.Header.Add("X-GitHub-Event", "push")
+		req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte(sharedSecret), payload))
+		router.New(sut).ServeHTTP(s.w, req)
+		s.Equal(scenario.expectedHttpCode, s.w.Code)
+		var res response
+		json.Unmarshal(s.w.Body.Bytes(), &res)
+		s.Equal(scenario.expectedError, res.Error)
+		s.ctrl.Finish()
+	}
 }
 
-func (s *handlerTestSuite) Test_PushEventMultipleRepos() {
+func (s *handlerTestSuite) Test_PushEventMultipleReposWithoutAppName() {
 	payload := NewGitHubPayloadBuilder().
 		withRef("refs/heads/master").
 		withURL("git@github.com:equinor/repo-4.git").
@@ -249,7 +317,7 @@ func (s *handlerTestSuite) Test_PushEventMultipleRepos() {
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(multipleMatchingReposMessage, res.Error)
+	s.Equal(multipleMatchingReposMessageWithoutAppName, res.Error)
 	s.ctrl.Finish()
 }
 
