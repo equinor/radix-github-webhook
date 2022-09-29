@@ -6,7 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -97,7 +97,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Need to parse webhook before validation because the secret is taken from the matching repo
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		metrics.IncreaseFailedParsingCounter()
 		_fail(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
@@ -188,19 +188,24 @@ func (wh *WebHookHandler) getApplicationSummary(req *http.Request, sshURL string
 	if len(applicationSummaries) == 0 {
 		return nil, errors.New(unmatchedRepoMessage)
 	}
-
 	appName := req.URL.Query().Get(appNameQueryParameter)
 	if len(applicationSummaries) == 1 {
-		if len(appName) == 0 || strings.EqualFold(applicationSummaries[0].Name, appName) {
-			return applicationSummaries[0], nil
-		}
-		return nil, errors.New(unmatchedRepoMessageByAppName)
+		return getApplicationSummaryForSingleRegisteredApplication(appName, applicationSummaries)
 	}
+	return getApplicationSummaryForMultipleRegisteredApplications(appName, applicationSummaries)
+}
 
+func getApplicationSummaryForSingleRegisteredApplication(appName string, applicationSummaries []*models.ApplicationSummary) (*models.ApplicationSummary, error) {
+	if len(appName) == 0 || strings.EqualFold(applicationSummaries[0].Name, appName) {
+		return applicationSummaries[0], nil
+	}
+	return nil, errors.New(unmatchedRepoMessageByAppName)
+}
+
+func getApplicationSummaryForMultipleRegisteredApplications(appName string, applicationSummaries []*models.ApplicationSummary) (*models.ApplicationSummary, error) {
 	if len(appName) == 0 {
 		return nil, errors.New(multipleMatchingReposMessageWithoutAppName)
 	}
-
 	for _, applicationSummary := range applicationSummaries {
 		if strings.EqualFold(applicationSummary.Name, appName) {
 			return applicationSummary, nil
@@ -287,7 +292,7 @@ func render(w http.ResponseWriter, v interface{}) {
 func validateSignature(signature, secretKey string, payload []byte) error {
 	sum := SHA256HMAC([]byte(secretKey), payload)
 	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
-		log.Printf("Expected signature %q (sum), got %q (hub-signature)", sum, signature)
+		log.Printf("Expected signature does not mutch to received event signature")
 		return errors.New(payloadSignatureMismatchMessage)
 	}
 	return nil
