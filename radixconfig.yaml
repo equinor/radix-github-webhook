@@ -20,7 +20,6 @@ spec:
     public: true
     environmentConfig:
     - environment: qa
-      runAsNonRoot: true
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-qa"
       resources:
@@ -31,7 +30,7 @@ spec:
           memory: "30Mi"
           cpu: "1000m"
     - environment: prod
-      runAsNonRoot: true
+      replicas: 2
       variables:
         API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"
       resources:
