@@ -46,9 +46,6 @@ var (
 	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
 		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
 	}
-	acceptedButNoPipelineJobCreatedMessage = func(branch, commitID string) string {
-		return fmt.Sprintf("Pipeline job was not created for commit %s on branch %s", commitID, branch)
-	}
 )
 
 // WebhookResponse The response structure
