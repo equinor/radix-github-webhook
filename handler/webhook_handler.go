@@ -46,6 +46,9 @@ var (
 	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
 		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
 	}
+	acceptedButNoPipelineJobCreatedMessage = func(branch, commitID string) string {
+		return fmt.Sprintf("Pipeline job was not created for commit %s on branch %s", commitID, branch)
+	}
 )
 
 // WebhookResponse The response structure
@@ -139,7 +142,10 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
 		}
-
+		if jobSummary == nil {
+			_succeedWithMessage(http.StatusAccepted, acceptedButNoPipelineJobCreatedMessage(branch, commitID))
+			return
+		}
 		_succeedWithMessage(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 
 	case *github.PingEvent:
