@@ -13,7 +13,7 @@ import (
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
-	"github.com/google/go-github/v45/github"
+	"github.com/google/go-github/v50/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -286,7 +286,7 @@ func render(w http.ResponseWriter, v interface{}) {
 	w.Write(data)
 }
 
-//  Taken from brigade pkg/webhook/github.go
+//	Taken from brigade pkg/webhook/github.go
 //
 // validateSignature compares the salted digest in the header with our own computing of the body.
 func validateSignature(signature, secretKey string, payload []byte) error {
