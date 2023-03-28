@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -67,7 +66,7 @@ func initializeFlagSet() *pflag.FlagSet {
 }
 
 func getServiceAccountToken() (string, error) {
-	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	token, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err == nil {
 		return string(token), nil
 	}

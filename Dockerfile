@@ -1,11 +1,11 @@
-FROM golang:1.18.5-alpine3.16 as builder
+FROM golang:1.19-alpine3.17 as builder
 
 ENV GO111MODULE=on
 
 RUN apk update && \
     apk add ca-certificates  && \
     apk add --no-cache gcc musl-dev && \
-    go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
+    go install honnef.co/go/tools/cmd/staticcheck@v0.4.2
 
 WORKDIR /go/src/github.com/equinor/radix-github-webhook/
 

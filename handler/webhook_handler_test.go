@@ -15,7 +15,7 @@ import (
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/equinor/radix-github-webhook/router"
 	"github.com/golang/mock/gomock"
-	"github.com/google/go-github/v45/github"
+	"github.com/google/go-github/v50/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -230,14 +230,14 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 	}{
 		{
 			name:             "unmatched repo for multiple apps without appName",
-			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, {Name: "appName2"}},
 			url:              "/",
 			expectedHttpCode: http.StatusBadRequest,
 			expectedError:    multipleMatchingReposMessageWithoutAppName,
 		},
 		{
 			name:             "unmatched repo for multiple apps by appName",
-			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, {Name: "appName2"}},
 			url:              "/?appName=appName3",
 			expectedHttpCode: http.StatusBadRequest,
 			expectedError:    unmatchedAppForMultipleMatchingReposMessage,
@@ -259,7 +259,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 		},
 		{
 			name:             "matched repo for multiple apps by appName",
-			apps:             []*models.ApplicationSummary{{Name: "appName1"}, &models.ApplicationSummary{Name: "appName2"}},
+			apps:             []*models.ApplicationSummary{{Name: "appName1"}, {Name: "appName2"}},
 			url:              "/?appName=appName2",
 			expectAppDetails: []expectedAppDetails{{token: "token", appName: "appName2"}},
 			expectedHttpCode: http.StatusOK,
