@@ -17,7 +17,7 @@ spec:
     ports:
     - name: http
       port: 3001
-    public: true
+    publicPort: http
     environmentConfig:
     - environment: qa
       variables:

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -118,7 +118,7 @@ func makeRequestWithBody(bearerToken, method, url string, reqBody []byte) ([]byt
 
 func readBody(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Errorf("Invalid response: %v", err)
 	}
