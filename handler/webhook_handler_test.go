@@ -15,7 +15,7 @@ import (
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/equinor/radix-github-webhook/router"
 	"github.com/golang/mock/gomock"
-	"github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v53/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -62,6 +62,7 @@ func (s *handlerTestSuite) Test_UnhandledEventType() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "pull_request")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -79,6 +80,7 @@ func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -97,6 +99,7 @@ func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -115,6 +118,7 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -139,6 +143,7 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -160,13 +165,14 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(webhookIncorrectConfiguration(appName, errors.New(payloadSignatureMismatchMessage)), res.Error)
+	s.Equal(webhookIncorrectConfiguration(appName, errors.New("payload signature check failed")), res.Error)
 	s.ctrl.Finish()
 }
 
@@ -186,6 +192,7 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
@@ -206,6 +213,7 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -291,6 +299,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 		}
 		sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 		req, _ := http.NewRequest("POST", scenario.url, bytes.NewReader(payload))
+		req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("X-GitHub-Event", "push")
 		req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte(sharedSecret), payload))
 		router.New(sut).ServeHTTP(s.w, req)
@@ -312,6 +321,7 @@ func (s *handlerTestSuite) Test_PushEventMultipleReposWithoutAppName() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
@@ -334,13 +344,14 @@ func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	json.Unmarshal(s.w.Body.Bytes(), &res)
-	s.Equal(webhookIncorrectConfiguration(appName, errors.New(payloadSignatureMismatchMessage)), res.Error)
+	s.Equal(webhookIncorrectConfiguration(appName, errors.New("payload signature check failed")), res.Error)
 	s.ctrl.Finish()
 }
 
@@ -358,6 +369,7 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
@@ -385,6 +397,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
@@ -412,6 +425,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 	router.New(sut).ServeHTTP(s.w, req)
@@ -432,6 +446,7 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 
 	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusAccepted, s.w.Code)
@@ -445,15 +460,6 @@ func Test_GetBranch_RemovesRefsHead(t *testing.T) {
 	assert.Equal(t, "master", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/master")}))
 	assert.Equal(t, "feature/RA-326-TestBranch", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/feature/RA-326-TestBranch")}))
 	assert.Equal(t, "hotfix/api/refs/heads/fix1", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")}))
-}
-
-func TestSHA256MAC_CorrectlyEncrypted(t *testing.T) {
-	key := []byte("Any shared secret")
-	message := []byte("Any message body\n")
-	expected := "sha256=be49b65412385a9181ed2e5edfb9daec2d4637cb286973a832b1913feff91ec1"
-	actual := SHA256HMAC(key, message)
-
-	assert.Equal(t, expected, actual, "SHA256HMAC - Incorrect encryption")
 }
 
 type response struct {
