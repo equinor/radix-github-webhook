@@ -1,19 +1,18 @@
 package handler
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
-	"github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v53/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,8 +29,8 @@ var (
 	multipleMatchingReposMessageWithoutAppName  = "Unable to match repo with unique Radix application without appName request parameter"
 	unmatchedRepoMessageByAppName               = "Unable to match repo with unique Radix application by appName request parameter"
 	unmatchedAppForMultipleMatchingReposMessage = "Unable to match repo with multiple Radix applications by appName request parameter"
-	payloadSignatureMismatchMessage             = "Payload signature check failed"
-	webhookIncorrectConfiguration               = func(appName string, err error) string {
+
+	webhookIncorrectConfiguration = func(appName string, err error) string {
 		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. Error was: %s", appName, err)
 	}
 	webhookCorrectConfiguration = func(appName string) string {
@@ -173,7 +172,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 		return nil, err
 	}
 
-	err = isValidSecret(req, body, *application.Registration.SharedSecret)
+	err = validatePayload(req.Header, body, []byte(*application.Registration.SharedSecret))
 	if err != nil {
 		return nil, errors.New(webhookIncorrectConfiguration(application.Registration.Name, err))
 	}
@@ -249,9 +248,14 @@ func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
 	return false
 }
 
-func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
-	signature := req.Header.Get(hubSignatureHeader)
-	if err := validateSignature(signature, sharedSecret, body); err != nil {
+func validatePayload(header http.Header, payload []byte, sharedSecret []byte) error {
+	signature := header.Get(github.SHA256SignatureHeader)
+	contentType, _, err := mime.ParseMediaType(header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	if _, err = github.ValidatePayloadFromBody(contentType, bytes.NewBuffer(payload), signature, sharedSecret); err != nil {
 		return err
 	}
 
@@ -284,26 +288,4 @@ func render(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	w.Write(data)
-}
-
-//	Taken from brigade pkg/webhook/github.go
-//
-// validateSignature compares the salted digest in the header with our own computing of the body.
-func validateSignature(signature, secretKey string, payload []byte) error {
-	sum := SHA256HMAC([]byte(secretKey), payload)
-	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
-		log.Printf("Expected signature does not match to received event signature")
-		return errors.New(payloadSignatureMismatchMessage)
-	}
-	return nil
-}
-
-// SHA256HMAC computes the GitHub SHA256 HMAC.
-func SHA256HMAC(key, message []byte) string {
-	// GitHub creates a SHA256 HMAC, where the key is the GitHub secret and the
-	// message is the JSON body.
-	digest := hmac.New(sha256.New, key)
-	digest.Write(message)
-	sum := digest.Sum(nil)
-	return fmt.Sprintf("sha256=%x", sum)
 }
