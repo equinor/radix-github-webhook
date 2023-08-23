@@ -1,55 +1,51 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/equinor/radix-github-webhook/handler"
+	"github.com/equinor/radix-github-webhook/internal"
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/equinor/radix-github-webhook/router"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"golang.org/x/oauth2"
 )
 
-func getAPIServerEndpoint() string {
-	envUseLocalRadixAPI := os.Getenv("USE_LOCAL_RADIX_API")
-	useLocalRadixAPI := strings.EqualFold(envUseLocalRadixAPI, "yes") || strings.EqualFold(envUseLocalRadixAPI, "true")
-	if useLocalRadixAPI {
-		return "http://localhost:3002/api"
-	}
-
-	apiServerPrefix := os.Getenv("API_SERVER_ENDPOINT_PREFIX")
-	clusterName := os.Getenv("RADIX_CLUSTERNAME")
-	dnsZone := os.Getenv("RADIX_DNS_ZONE")
-	return fmt.Sprintf("%s.%s.%s/api", apiServerPrefix, clusterName, dnsZone)
-}
+const serviceAccountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 func main() {
-	fs := initializeFlagSet()
+	logLevel, err := log.ParseLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = log.InfoLevel
+	}
+	log.SetLevel(logLevel)
 
+	fs := initializeFlagSet()
 	var (
 		port              = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
 		apiServerEndpoint = getAPIServerEndpoint()
 	)
-
 	parseFlagsFromArgs(fs)
 
-	token, err := getServiceAccountToken()
+	tokenSource, err := getTokenSource()
 	if err != nil {
-		logrus.Fatalf("Unable to read token from file: %v or from environment variable BEARER_TOKEN", err)
+		log.Fatal(err)
 	}
 
-	logrus.Infof("Listen for incoming events on port %s", *port)
-	wh := handler.NewWebHookHandler(token, radix.NewAPIServerStub(apiServerEndpoint))
+	client := oauth2.NewClient(context.Background(), oauth2.ReuseTokenSource(nil, tokenSource))
+	wh := handler.NewWebHookHandler(radix.NewAPIServerStub(apiServerEndpoint, client))
 	router := router.New(wh.HandleWebhookEvents())
 	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), router)
 
 	if err != nil {
-		logrus.Fatalf("Unable to start serving: %v", err)
+		log.Fatalf("Unable to start serving: %v", err)
 	}
-
 }
 
 func initializeFlagSet() *pflag.FlagSet {
@@ -65,16 +61,32 @@ func initializeFlagSet() *pflag.FlagSet {
 	return fs
 }
 
-func getServiceAccountToken() (string, error) {
-	token, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
-	if err == nil {
-		return string(token), nil
+func getAPIServerEndpoint() string {
+	envUseLocalRadixAPI := os.Getenv("USE_LOCAL_RADIX_API")
+	useLocalRadixAPI := strings.EqualFold(envUseLocalRadixAPI, "yes") || strings.EqualFold(envUseLocalRadixAPI, "true")
+	if useLocalRadixAPI {
+		return "http://localhost:3002/api"
 	}
+
+	apiServerPrefix := os.Getenv("API_SERVER_ENDPOINT_PREFIX")
+	clusterName := os.Getenv("RADIX_CLUSTERNAME")
+	dnsZone := os.Getenv("RADIX_DNS_ZONE")
+	return fmt.Sprintf("%s.%s.%s/api", apiServerPrefix, clusterName, dnsZone)
+}
+
+func getTokenSource() (oauth2.TokenSource, error) {
+	if _, err := os.Stat(serviceAccountTokenFile); err == nil {
+		return internal.JwtCallbackTokenSource(func() (string, error) {
+			token, err := os.ReadFile(serviceAccountTokenFile)
+			return string(token), err
+		}), nil
+	}
+
 	envToken := os.Getenv("BEARER_TOKEN")
-	if len(envToken) != 0 {
-		return envToken, nil
+	if len(envToken) > 0 {
+		return internal.JwtCallbackTokenSource(func() (string, error) { return envToken, nil }), nil
 	}
-	return "", err
+	return nil, errors.New("failed to create TokenSource from mounted service account token or environment variable")
 }
 
 func parseFlagsFromArgs(fs *pflag.FlagSet) {

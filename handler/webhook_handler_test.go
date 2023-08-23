@@ -45,7 +45,7 @@ func (s *handlerTestSuite) SetupTest() {
 }
 
 func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", nil)
 
 	router.New(sut).ServeHTTP(s.w, req)
@@ -60,7 +60,7 @@ func (s *handlerTestSuite) Test_UnhandledEventType() {
 		withURL("git@github.com:equinor/repo-1.git").
 		BuildPullRequestEventPayload()
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "pull_request")
@@ -76,9 +76,9 @@ func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -95,9 +95,9 @@ func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return(nil, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -114,9 +114,9 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPingEventPayload()
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -138,10 +138,10 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 		BuildPingEventPayload()
 
 	appSummary := models.ApplicationSummary{Name: appName}
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(nil, errors.New("any error")).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(nil, errors.New("any error")).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -160,10 +160,10 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 		BuildPingEventPayload()
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -187,10 +187,10 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
@@ -209,9 +209,9 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPushEventPayload()
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return(nil, errors.New("any error")).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -225,7 +225,6 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 
 func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 	type expectedAppDetails struct {
-		token   string
 		appName string
 	}
 	scenarios := []struct {
@@ -261,7 +260,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 			name:             "matched repo for single apps by appName",
 			apps:             []*models.ApplicationSummary{{Name: "appName1"}},
 			url:              "/?appName=appName1",
-			expectAppDetails: []expectedAppDetails{{token: "token", appName: "appName1"}},
+			expectAppDetails: []expectedAppDetails{{appName: "appName1"}},
 			expectedHttpCode: http.StatusOK,
 			expectedError:    "",
 		},
@@ -269,7 +268,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 			name:             "matched repo for multiple apps by appName",
 			apps:             []*models.ApplicationSummary{{Name: "appName1"}, {Name: "appName2"}},
 			url:              "/?appName=appName2",
-			expectAppDetails: []expectedAppDetails{{token: "token", appName: "appName2"}},
+			expectAppDetails: []expectedAppDetails{{appName: "appName2"}},
 			expectedHttpCode: http.StatusOK,
 			expectedError:    "",
 		},
@@ -285,19 +284,19 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 	for _, scenario := range scenarios {
 		s.T().Logf("Test: %s", scenario.name)
 		s.w = httptest.NewRecorder()
-		s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return(scenario.apps, nil).Times(1)
+		s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return(scenario.apps, nil).Times(1)
 		for _, expectAppDetail := range scenario.expectAppDetails {
 			appDetail := models.NewApplicationBuilder().WithName(expectAppDetail.appName).WithSharedSecret(sharedSecret).Build()
-			s.apiServer.EXPECT().GetApplication(expectAppDetail.token, expectAppDetail.appName).
+			s.apiServer.EXPECT().GetApplication(expectAppDetail.appName).
 				Return(appDetail, nil).
 				Times(1)
 			jobSummary := models.JobSummary{Name: "jobname", AppName: expectAppDetail.appName, Branch: "master", CommitID: commitID, TriggeredBy: ""}
 			s.apiServer.EXPECT().
-				TriggerPipeline(expectAppDetail.token, expectAppDetail.appName, "master", commitID, "").
+				TriggerPipeline(expectAppDetail.appName, "master", commitID, "").
 				Return(&jobSummary, nil).
 				Times(1)
 		}
-		sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+		sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 		req, _ := http.NewRequest("POST", scenario.url, bytes.NewReader(payload))
 		req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("X-GitHub-Event", "push")
@@ -317,9 +316,9 @@ func (s *handlerTestSuite) Test_PushEventMultipleReposWithoutAppName() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPushEventPayload()
 
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{{}, {}}, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -339,10 +338,10 @@ func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
 		BuildPushEventPayload()
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -364,10 +363,10 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPushEventPayload()
 	appSummary := models.ApplicationSummary{Name: appName}
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(nil, errors.New("any error")).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(nil, errors.New("any error")).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -391,11 +390,11 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
 	apiError := errors.New("any error")
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
-	s.apiServer.EXPECT().TriggerPipeline("token", appName, "master", commitID, "").Return(nil, apiError).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline(appName, "master", commitID, "").Return(nil, apiError).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -419,11 +418,11 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
 	jobSummary := models.JobSummary{Name: "jobname", AppName: "jobappname", Branch: "jobbranchname", CommitID: "jobcommitID", TriggeredBy: "anyuser"}
-	s.apiServer.EXPECT().ShowApplications("token", "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
-	s.apiServer.EXPECT().GetApplication("token", appName).Return(appDetail, nil).Times(1)
-	s.apiServer.EXPECT().TriggerPipeline("token", appName, "master", commitID, "").Return(&jobSummary, nil).Times(1)
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline(appName, "master", commitID, "").Return(&jobSummary, nil).Times(1)
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
@@ -444,7 +443,7 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 		withURL("git@github.com:equinor/repo-4.git").
 		BuildPushEventPayload()
 
-	sut := NewWebHookHandler("token", s.apiServer).HandleWebhookEvents()
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
