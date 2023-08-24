@@ -21,19 +21,21 @@ const startPipelineEndPointPattern = "/v1/applications/%s/pipelines/%s"
 // APIServerStub Makes calls to real API server
 type APIServerStub struct {
 	apiServerEndPoint string
+	client            *http.Client
 }
 
 // NewAPIServerStub Constructor
-func NewAPIServerStub(apiServerEndPoint string) APIServer {
+func NewAPIServerStub(apiServerEndPoint string, client *http.Client) APIServer {
 	return &APIServerStub{
 		apiServerEndPoint: apiServerEndPoint,
+		client:            client,
 	}
 }
 
 // ShowApplications Implementation
-func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*models.ApplicationSummary, error) {
+func (api *APIServerStub) ShowApplications(sshURL string) ([]*models.ApplicationSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationSummariesEndPointPattern, url.QueryEscape(sshURL))
-	response, err := makeRequest(bearerToken, "GET", url)
+	response, err := api.makeRequest("GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +49,9 @@ func (api *APIServerStub) ShowApplications(bearerToken, sshURL string) ([]*model
 }
 
 // GetApplication Implementation
-func (api *APIServerStub) GetApplication(bearerToken, appName string) (*models.Application, error) {
+func (api *APIServerStub) GetApplication(appName string) (*models.Application, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationEndPointPattern, appName)
-	response, err := makeRequest(bearerToken, "GET", url)
+	response, err := api.makeRequest("GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +65,8 @@ func (api *APIServerStub) GetApplication(bearerToken, appName string) (*models.A
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
+func (api *APIServerStub) TriggerPipeline(appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
-
 	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, TriggeredBy: triggeredBy}
 
 	body, err := json.Marshal(parameters)
@@ -73,7 +74,7 @@ func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID
 		return nil, err
 	}
 
-	response, err := makeRequestWithBody(bearerToken, "POST", url, body)
+	response, err := api.makeRequestWithBody("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -86,20 +87,19 @@ func (api *APIServerStub) TriggerPipeline(bearerToken, appName, branch, commitID
 	return jobSummary, nil
 }
 
-func makeRequest(bearerToken, method, url string) ([]byte, error) {
-	return makeRequestWithBody(bearerToken, method, url, []byte{})
+func (api *APIServerStub) makeRequest(method, url string) ([]byte, error) {
+	return api.makeRequestWithBody(method, url, []byte{})
 }
 
-func makeRequestWithBody(bearerToken, method, url string, reqBody []byte) ([]byte, error) {
+func (api *APIServerStub) makeRequestWithBody(method, url string, reqBody []byte) ([]byte, error) {
 	req, err := http.NewRequest(method, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, errors.Errorf("Unable create request for starting pipeline: %v", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", bearerToken))
 
 	log.Infof("%s: %s", method, url)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, errors.Errorf("Request failed: %v", err)
 	}

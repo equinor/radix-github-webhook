@@ -57,14 +57,12 @@ type WebhookResponse struct {
 
 // WebHookHandler Instance
 type WebHookHandler struct {
-	ServiceAccountBearerToken string
-	apiServer                 radix.APIServer
+	apiServer radix.APIServer
 }
 
 // NewWebHookHandler Constructor
-func NewWebHookHandler(token string, apiServer radix.APIServer) *WebHookHandler {
+func NewWebHookHandler(apiServer radix.APIServer) *WebHookHandler {
 	return &WebHookHandler{
-		token,
 		apiServer,
 	}
 }
@@ -132,7 +130,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
+		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
 			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
 			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
@@ -167,7 +165,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 	if err != nil {
 		return nil, err
 	}
-	application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
+	application, err := wh.apiServer.GetApplication(applicationSummary.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +178,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 }
 
 func (wh *WebHookHandler) getApplicationSummary(req *http.Request, sshURL string) (*models.ApplicationSummary, error) {
-	applicationSummaries, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, sshURL)
+	applicationSummaries, err := wh.apiServer.ShowApplications(sshURL)
 	if err != nil {
 		return nil, err
 	}
