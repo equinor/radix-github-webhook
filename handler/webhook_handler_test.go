@@ -380,9 +380,6 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 }
 
 func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
-	type expectedAppDetails struct {
-		appName string
-	}
 	appName := "appname"
 	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
 	appSummary := models.ApplicationSummary{Name: appName}
