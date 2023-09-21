@@ -5,7 +5,8 @@ type Error struct {
 	// a message that can be printed out for the user
 	Message string `json:"message"`
 	// the underlying error that can be e.g., logged for developers to look at
-	Err error
+	Err        error
+	StatusCode int
 }
 
 func (e *Error) Error() string {

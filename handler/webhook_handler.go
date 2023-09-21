@@ -132,6 +132,10 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
+			if e, ok := err.(*models.Error); ok && e.StatusCode == 400 {
+				_succeedWithMessage(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
+				return
+			}
 			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
 			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
