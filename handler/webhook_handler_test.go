@@ -390,25 +390,20 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 
 	scenarios := []struct {
 		name             string
-		url              string
 		apiError         error
-		expectAppDetails []expectedAppDetails
 		expectedHttpCode int
-		expectedError    string
 		expectedMessage  string
-		branch           string
+		expectedError    string
 	}{
 		{
 			name:             "push-event will return 400 on generic error",
-			url:              "/",
 			apiError:         errors.New("any error"),
 			expectedHttpCode: http.StatusBadRequest,
+			expectedMessage:  "",
 			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
-			branch:           "master",
 		},
 		{
 			name: "push-event will return 202 when api-server returns Bad Request (400)",
-			url:  "/",
 			apiError: &models.Error{
 				Message:    "any error",
 				Err:        errors.New("any error"),
@@ -417,24 +412,20 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 			expectedHttpCode: http.StatusAccepted,
 			expectedMessage:  createPipelineJobErrorMessage("appname", errors.New("any error")),
 			expectedError:    "",
-			branch:           "unkown-branch",
 		},
 		{
 			name: "push-event will return 400 when api-server returns status code > 400",
-			url:  "/",
 			apiError: &models.Error{
 				Message:    "any error",
 				Err:        errors.New("any error"),
 				StatusCode: 404,
 			},
 			expectedHttpCode: http.StatusBadRequest,
-			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
 			expectedMessage:  "",
-			branch:           "unkown-branch",
+			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
 		},
 		{
 			name: "push-event will return 400 when api-server returns status code == 500",
-			url:  "/",
 			apiError: &models.Error{
 				Message:    "any error",
 				Err:        errors.New("any error"),
@@ -443,7 +434,6 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 			expectedHttpCode: http.StatusBadRequest,
 			expectedMessage:  "",
 			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
-			branch:           "unkown-branch",
 		},
 	}
 
@@ -453,16 +443,16 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 
 		payload := NewGitHubPayloadBuilder().
 			withAfter(commitID).
-			withRef("refs/heads/" + scenario.branch).
+			withRef("refs/heads/master").
 			withURL("git@github.com:equinor/repo-4.git").
 			BuildPushEventPayload()
 
 		s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
 		s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
-		s.apiServer.EXPECT().TriggerPipeline(appName, scenario.branch, commitID, "").Return(nil, scenario.apiError).Times(1)
+		s.apiServer.EXPECT().TriggerPipeline(appName, "master", commitID, "").Return(nil, scenario.apiError).Times(1)
 
 		sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
-		req, _ := http.NewRequest("POST", scenario.url, bytes.NewReader(payload))
+		req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 		req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("X-GitHub-Event", "push")
 		req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
