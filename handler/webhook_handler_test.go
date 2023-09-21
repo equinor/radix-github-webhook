@@ -384,6 +384,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 	commitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
 	appSummary := models.ApplicationSummary{Name: appName}
 	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	anyError := errors.New("any error")
 
 	scenarios := []struct {
 		name             string
@@ -394,43 +395,40 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 	}{
 		{
 			name:             "push-event will return 400 on generic error",
-			apiError:         errors.New("any error"),
+			apiError:         anyError,
 			expectedHttpCode: http.StatusBadRequest,
 			expectedMessage:  "",
-			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
+			expectedError:    createPipelineJobErrorMessage(appName, anyError),
 		},
 		{
 			name: "push-event will return 202 when api-server returns Bad Request (400)",
-			apiError: &models.Error{
-				Message:    "any error",
-				Err:        errors.New("any error"),
-				StatusCode: 400,
+			apiError: &radix.ApiError{
+				Message: anyError.Error(),
+				Code:    400,
 			},
 			expectedHttpCode: http.StatusAccepted,
-			expectedMessage:  createPipelineJobErrorMessage("appname", errors.New("any error")),
+			expectedMessage:  createPipelineJobErrorMessage(appName, anyError),
 			expectedError:    "",
 		},
 		{
 			name: "push-event will return 400 when api-server returns status code > 400",
-			apiError: &models.Error{
-				Message:    "any error",
-				Err:        errors.New("any error"),
-				StatusCode: 404,
+			apiError: &radix.ApiError{
+				Message: anyError.Error(),
+				Code:    404,
 			},
 			expectedHttpCode: http.StatusBadRequest,
 			expectedMessage:  "",
-			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
+			expectedError:    createPipelineJobErrorMessage(appName, anyError),
 		},
 		{
 			name: "push-event will return 400 when api-server returns status code == 500",
-			apiError: &models.Error{
-				Message:    "any error",
-				Err:        errors.New("any error"),
-				StatusCode: 500,
+			apiError: &radix.ApiError{
+				Message: anyError.Error(),
+				Code:    500,
 			},
 			expectedHttpCode: http.StatusBadRequest,
 			expectedMessage:  "",
-			expectedError:    createPipelineJobErrorMessage("appname", errors.New("any error")),
+			expectedError:    createPipelineJobErrorMessage(appName, anyError),
 		},
 	}
 

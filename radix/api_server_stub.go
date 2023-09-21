@@ -156,10 +156,10 @@ func unmarshalError(resp *http.Response) error {
 		return err
 	}
 
-	var res *models.Error
+	var res *ApiError
 	if err := json.Unmarshal(body, &res); err != nil {
 		return err
 	}
-	res.StatusCode = resp.StatusCode
+	res.Code = resp.StatusCode
 	return res
 }

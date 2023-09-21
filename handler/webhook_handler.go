@@ -31,7 +31,7 @@ var (
 	unmatchedAppForMultipleMatchingReposMessage = "Unable to match repo with multiple Radix applications by appName request parameter"
 
 	webhookIncorrectConfiguration = func(appName string, err error) string {
-		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. Error was: %s", appName, err)
+		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. ApiError was: %s", appName, err)
 	}
 	webhookCorrectConfiguration = func(appName string) string {
 		return fmt.Sprintf("Webhook is configured correctly with for Radix application %s", appName)
@@ -40,7 +40,7 @@ var (
 		return fmt.Sprintf("Deletion of %s not supported, aborting", refName)
 	}
 	createPipelineJobErrorMessage = func(appName string, apiError error) string {
-		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. Error was: %s", appName, apiError)
+		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. ApiError was: %s", appName, apiError)
 	}
 	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
 		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
@@ -132,7 +132,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
 		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
-			if e, ok := err.(*models.Error); ok && e.StatusCode == 400 {
+			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
 				_succeedWithMessage(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
 				return
 			}
