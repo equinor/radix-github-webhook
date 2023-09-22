@@ -34,7 +34,7 @@ Radix GitHub Webhook is installed as a Radix application in [script](https://git
 Bearer token can be provided in two ways
 
 * In a file `/var/run/secrets/kubernetes.io/serviceaccount/token`
-* Environment variable `BEARER_TOKEN`
+* Environment variable `BEARER_TOKEN` (create new token with `kubectl create token --namespace radix-github-webhook-qa radix-github-webhook`)
 
 if file does not exist - environment variable has being used
 
@@ -44,3 +44,14 @@ When debug locally together with other apps and services - local `radix-api` can
 * `USE_LOCAL_RADIX_API`
   * `false`, `no` or not set - connecting to in-cluster `radix-api`
   * `true` or `yes` - connecting to `radix-api`, running on `http://localhost:3002`
+
+## Configuration:
+
+### Commandline arguments: 
+- `--port`/ `-p`: Port to listen for, defaults to 3001.
+
+### Environment variables used:
+- `USE_LOCAL_RADIX_API`: Defaults to `no`, ex: `no` or `yes`
+- `API_SERVER_ENDPOINT_PREFIX`: No defaults, ex: `https://server-radix-api-qa` 
+- `RADIX_CLUSTERNAME`: No defaults, ex: `dev` 
+- `RADIX_DNS_ZONE`: No defaults, ex: `radix.equinor.com`

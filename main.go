@@ -95,7 +95,7 @@ func parseFlagsFromArgs(fs *pflag.FlagSet) {
 	case err == pflag.ErrHelp:
 		os.Exit(0)
 	case err != nil:
-		fmt.Fprintf(os.Stderr, "Error: %s\n\n", err.Error())
+		fmt.Fprintf(os.Stderr, "ApiError: %s\n\n", err.Error())
 		fs.Usage()
 		os.Exit(2)
 	}
