@@ -104,7 +104,7 @@ func (api *APIServerStub) makeRequestWithBody(method, url string, reqBody []byte
 		return nil, errors.Errorf("Request failed: %v", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode >= 400 {
 		return nil, unmarshalError(resp)
 	}
 
@@ -156,10 +156,10 @@ func unmarshalError(resp *http.Response) error {
 		return err
 	}
 
-	var res *models.Error
+	var res *ApiError
 	if err := json.Unmarshal(body, &res); err != nil {
 		return err
 	}
-
-	return errors.Errorf("%s", res.Message)
+	res.Code = resp.StatusCode
+	return res
 }
