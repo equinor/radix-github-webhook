@@ -18,6 +18,9 @@ build: $(BINS)
 test:
 	go test -cover `go list ./...`
 
+staticcheck:
+	staticcheck ./...
+
 .PHONY: deploy
 deploy:
 	# Download deploy key + webhook shared secret
@@ -78,6 +81,5 @@ endif
 bootstrap: vendor
 
 .PHONY: mocks
-mocks:	
+mocks:
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
-	
