@@ -111,7 +111,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	switch e := payload.(type) {
 	case *github.PushEvent:
 		branch := getBranch(e)
-		commitID := *e.After
+		commitID := getCommitID(e)
 		sshURL := e.Repo.GetSSHURL()
 		triggeredBy := getPushTriggeredBy(e)
 
@@ -164,11 +164,23 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
+func getCommitID(e *github.PushEvent) string {
+	if e.Ref != nil && strings.HasPrefix(*e.Ref, "refs/tags/") && e.BaseRef == nil {
+		// The property After has not an existing commit-ID, but other object ID
+		// in the event for an "annotated tag", which can be created with a command
+		// `git tag tag-name -m "annotation message"
+		// https://git-scm.com/book/en/v2/Git-Basics-Tagging
+		return *e.HeadCommit.ID
+	}
+	return *e.After
+}
+
 func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL string) (*models.ApplicationSummary, error) {
 	applicationSummary, err := wh.getApplicationSummary(req, sshURL)
 	if err != nil {
 		return nil, err
 	}
+
 	application, err := wh.apiServer.GetApplication(applicationSummary.Name)
 	if err != nil {
 		return nil, err
