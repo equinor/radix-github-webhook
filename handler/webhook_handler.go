@@ -1,19 +1,18 @@
 package handler
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
-	"github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v53/github"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,9 +29,9 @@ var (
 	multipleMatchingReposMessageWithoutAppName  = "Unable to match repo with unique Radix application without appName request parameter"
 	unmatchedRepoMessageByAppName               = "Unable to match repo with unique Radix application by appName request parameter"
 	unmatchedAppForMultipleMatchingReposMessage = "Unable to match repo with multiple Radix applications by appName request parameter"
-	payloadSignatureMismatchMessage             = "Payload signature check failed"
-	webhookIncorrectConfiguration               = func(appName string, err error) string {
-		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. Error was: %s", appName, err)
+
+	webhookIncorrectConfiguration = func(appName string, err error) string {
+		return fmt.Sprintf("Webhook is not configured correctly for Radix application %s. ApiError was: %s", appName, err)
 	}
 	webhookCorrectConfiguration = func(appName string) string {
 		return fmt.Sprintf("Webhook is configured correctly with for Radix application %s", appName)
@@ -41,7 +40,7 @@ var (
 		return fmt.Sprintf("Deletion of %s not supported, aborting", refName)
 	}
 	createPipelineJobErrorMessage = func(appName string, apiError error) string {
-		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. Error was: %s", appName, apiError)
+		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. ApiError was: %s", appName, apiError)
 	}
 	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
 		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
@@ -58,14 +57,12 @@ type WebhookResponse struct {
 
 // WebHookHandler Instance
 type WebHookHandler struct {
-	ServiceAccountBearerToken string
-	apiServer                 radix.APIServer
+	apiServer radix.APIServer
 }
 
 // NewWebHookHandler Constructor
-func NewWebHookHandler(token string, apiServer radix.APIServer) *WebHookHandler {
+func NewWebHookHandler(apiServer radix.APIServer) *WebHookHandler {
 	return &WebHookHandler{
-		token,
 		apiServer,
 	}
 }
@@ -114,7 +111,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	switch e := payload.(type) {
 	case *github.PushEvent:
 		branch := getBranch(e)
-		commitID := *e.After
+		commitID := getCommitID(e)
 		sshURL := e.Repo.GetSSHURL()
 		triggeredBy := getPushTriggeredBy(e)
 
@@ -133,8 +130,12 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(wh.ServiceAccountBearerToken, applicationSummary.Name, branch, commitID, triggeredBy)
+		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
+			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
+				_succeedWithMessage(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
+				return
+			}
 			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
 			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
@@ -163,17 +164,29 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
+func getCommitID(e *github.PushEvent) string {
+	if e.Ref != nil && strings.HasPrefix(*e.Ref, "refs/tags/") && e.BaseRef == nil {
+		// The property After has not an existing commit-ID, but other object ID
+		// in the event for an "annotated tag", which can be created with a command
+		// `git tag tag-name -m "annotation message"
+		// https://git-scm.com/book/en/v2/Git-Basics-Tagging
+		return *e.HeadCommit.ID
+	}
+	return *e.After
+}
+
 func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL string) (*models.ApplicationSummary, error) {
 	applicationSummary, err := wh.getApplicationSummary(req, sshURL)
 	if err != nil {
 		return nil, err
 	}
-	application, err := wh.apiServer.GetApplication(wh.ServiceAccountBearerToken, applicationSummary.Name)
+
+	application, err := wh.apiServer.GetApplication(applicationSummary.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	err = isValidSecret(req, body, *application.Registration.SharedSecret)
+	err = validatePayload(req.Header, body, []byte(*application.Registration.SharedSecret))
 	if err != nil {
 		return nil, errors.New(webhookIncorrectConfiguration(application.Registration.Name, err))
 	}
@@ -181,7 +194,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 }
 
 func (wh *WebHookHandler) getApplicationSummary(req *http.Request, sshURL string) (*models.ApplicationSummary, error) {
-	applicationSummaries, err := wh.apiServer.ShowApplications(wh.ServiceAccountBearerToken, sshURL)
+	applicationSummaries, err := wh.apiServer.ShowApplications(sshURL)
 	if err != nil {
 		return nil, err
 	}
@@ -249,9 +262,14 @@ func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
 	return false
 }
 
-func isValidSecret(req *http.Request, body []byte, sharedSecret string) error {
-	signature := req.Header.Get(hubSignatureHeader)
-	if err := validateSignature(signature, sharedSecret, body); err != nil {
+func validatePayload(header http.Header, payload []byte, sharedSecret []byte) error {
+	signature := header.Get(github.SHA256SignatureHeader)
+	contentType, _, err := mime.ParseMediaType(header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	if _, err = github.ValidatePayloadFromBody(contentType, bytes.NewBuffer(payload), signature, sharedSecret); err != nil {
 		return err
 	}
 
@@ -284,26 +302,4 @@ func render(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	w.Write(data)
-}
-
-//	Taken from brigade pkg/webhook/github.go
-//
-// validateSignature compares the salted digest in the header with our own computing of the body.
-func validateSignature(signature, secretKey string, payload []byte) error {
-	sum := SHA256HMAC([]byte(secretKey), payload)
-	if subtle.ConstantTimeCompare([]byte(sum), []byte(signature)) != 1 {
-		log.Printf("Expected signature does not match to received event signature")
-		return errors.New(payloadSignatureMismatchMessage)
-	}
-	return nil
-}
-
-// SHA256HMAC computes the GitHub SHA256 HMAC.
-func SHA256HMAC(key, message []byte) string {
-	// GitHub creates a SHA256 HMAC, where the key is the GitHub secret and the
-	// message is the JSON body.
-	digest := hmac.New(sha256.New, key)
-	digest.Write(message)
-	sum := digest.Sum(nil)
-	return fmt.Sprintf("sha256=%x", sum)
 }
