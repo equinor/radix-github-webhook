@@ -517,6 +517,38 @@ func Test_GetBranch_RemovesRefsHead(t *testing.T) {
 	assert.Equal(t, "hotfix/api/refs/heads/fix1", getBranch(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")}))
 }
 
+func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
+	appName := "appname"
+	headCommitID := "4faca8595c5283a9d0f17a623b9255a0d9866a2e"
+	afterID := "e0ebacaa-fa4b-49aa-b184-67064e8fcd4c"
+	tag := "v1"
+	payload := NewGitHubPayloadBuilder().
+		withRef("refs/tags/" + tag).
+		withAfter(afterID).
+		withHeadCommitID(headCommitID).
+		withURL("git@github.com:equinor/repo-1.git").
+		BuildPushEventPayload()
+
+	appSummary := models.ApplicationSummary{Name: appName}
+	appDetail := models.NewApplicationBuilder().WithName(appName).WithSharedSecret("sharedsecret").Build()
+	jobSummary := models.JobSummary{Name: "jobname", AppName: "jobappname", Branch: "jobbranchname", CommitID: headCommitID, TriggeredBy: "anyuser"}
+	s.apiServer.EXPECT().ShowApplications("git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
+	s.apiServer.EXPECT().GetApplication(appName).Return(appDetail, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline(appName, tag, headCommitID, "").Return(&jobSummary, nil).Times(1)
+
+	sut := NewWebHookHandler(s.apiServer).HandleWebhookEvents()
+	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-GitHub-Event", "push")
+	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
+	router.New(sut).ServeHTTP(s.w, req)
+	s.Equal(http.StatusOK, s.w.Code)
+	var res response
+	json.Unmarshal(s.w.Body.Bytes(), &res)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
+	s.ctrl.Finish()
+}
+
 type response struct {
 	Message string `json:"message"`
 	Error   string `json:"error"`
@@ -524,20 +556,22 @@ type response struct {
 
 // GitHubPayloadBuilder Handles construction of github payload
 type GitHubPayloadBuilder interface {
-	withRef(string) GitHubPayloadBuilder
-	withAfter(string) GitHubPayloadBuilder
-	withURL(string) GitHubPayloadBuilder
+	withRef(refs string) GitHubPayloadBuilder
+	withAfter(after string) GitHubPayloadBuilder
+	withURL(url string) GitHubPayloadBuilder
 	withDeleted(deleted bool) GitHubPayloadBuilder
+	withHeadCommitID(commitID string) GitHubPayloadBuilder
 	BuildPushEventPayload() []byte
 	BuildPingEventPayload() []byte
 	BuildPullRequestEventPayload() []byte
 }
 
 type gitHubPayloadBuilder struct {
-	ref     string
-	after   string
-	url     string
-	deleted *bool
+	ref          string
+	after        string
+	url          string
+	deleted      *bool
+	headCommitID string
 }
 
 // NewGitHubPayloadBuilder Constructor
@@ -555,6 +589,11 @@ func (pb *gitHubPayloadBuilder) withAfter(after string) GitHubPayloadBuilder {
 	return pb
 }
 
+func (pb *gitHubPayloadBuilder) withHeadCommitID(commitID string) GitHubPayloadBuilder {
+	pb.headCommitID = commitID
+	return pb
+}
+
 func (pb *gitHubPayloadBuilder) withURL(url string) GitHubPayloadBuilder {
 	pb.url = url
 	return pb
@@ -569,14 +608,18 @@ func (pb *gitHubPayloadBuilder) BuildPushEventPayload() []byte {
 	type repo struct {
 		SSHUrl string `json:"ssh_url"`
 	}
+	type headCommit struct {
+		ID string `json:"id"`
+	}
 	type pushEvent struct {
-		Ref     string `json:"ref"`
-		After   string `json:"after"`
-		Deleted *bool  `json:"deleted,omitempty"`
-		Repo    repo   `json:"repository"`
+		Ref        string     `json:"ref"`
+		After      string     `json:"after"`
+		Deleted    *bool      `json:"deleted,omitempty"`
+		Repo       repo       `json:"repository"`
+		HeadCommit headCommit `json:"head_commit"`
 	}
 
-	event := pushEvent{Ref: pb.ref, After: pb.after, Deleted: pb.deleted, Repo: repo{SSHUrl: pb.url}}
+	event := pushEvent{Ref: pb.ref, After: pb.after, Deleted: pb.deleted, Repo: repo{SSHUrl: pb.url}, HeadCommit: headCommit{ID: pb.headCommitID}}
 	payload, err := json.Marshal(event)
 	if err != nil {
 		panic("failed to marshal json for test")
