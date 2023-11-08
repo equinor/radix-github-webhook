@@ -8,6 +8,10 @@ Support GitHub Webhook to trigger pipeline build through the API server
 
 [Github webhook integration best practices](https://docs.github.com/en/github-ae@latest/rest/guides/best-practices-for-integrators#use-appropriate-http-status-codes-when-responding-to-github)
 
+## Contribution
+
+Want to contribute? Read our [contributing guidelines](./CONTRIBUTING.md)
+
 ## Tips on debugging
 
 Install and run *ngrok* to expose localhost by `ngrok http 3001`. The Webhook in GitHub should point to the *ngrok* address.
@@ -55,3 +59,7 @@ When debug locally together with other apps and services - local `radix-api` can
 - `API_SERVER_ENDPOINT_PREFIX`: No defaults, ex: `https://server-radix-api-qa` 
 - `RADIX_CLUSTERNAME`: No defaults, ex: `dev` 
 - `RADIX_DNS_ZONE`: No defaults, ex: `radix.equinor.com`
+
+## Security
+
+This is how we handle [security issues](./SECURITY.md)
