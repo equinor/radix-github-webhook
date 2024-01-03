@@ -17,6 +17,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-github/v53/github"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -51,7 +52,8 @@ func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(notAGithubEventMessage, res.Error)
 }
 
@@ -67,7 +69,8 @@ func (s *handlerTestSuite) Test_UnhandledEventType() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(unhandledEventTypeMessage("pull_request"), res.Error)
 }
 
@@ -85,7 +88,8 @@ func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal("any error", res.Error)
 	s.ctrl.Finish()
 }
@@ -104,7 +108,8 @@ func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(unmatchedRepoMessage, res.Error)
 	s.ctrl.Finish()
 }
@@ -123,7 +128,8 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(multipleMatchingReposMessageWithoutAppName, res.Error)
 	s.ctrl.Finish()
 }
@@ -148,7 +154,8 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal("any error", res.Error)
 	s.ctrl.Finish()
 }
@@ -171,7 +178,8 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(webhookIncorrectConfiguration(appName, errors.New("payload signature check failed")), res.Error)
 	s.ctrl.Finish()
 }
@@ -198,7 +206,8 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(webhookCorrectConfiguration(appName), res.Message)
 	s.ctrl.Finish()
 }
@@ -218,7 +227,8 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal("any error", res.Error)
 	s.ctrl.Finish()
 }
@@ -304,7 +314,8 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 		router.New(sut).ServeHTTP(s.w, req)
 		s.Equal(scenario.expectedHttpCode, s.w.Code)
 		var res response
-		json.Unmarshal(s.w.Body.Bytes(), &res)
+		err := json.Unmarshal(s.w.Body.Bytes(), &res)
+		require.NoError(s.T(), err)
 		s.Equal(scenario.expectedError, res.Error)
 		s.ctrl.Finish()
 	}
@@ -325,7 +336,8 @@ func (s *handlerTestSuite) Test_PushEventMultipleReposWithoutAppName() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(multipleMatchingReposMessageWithoutAppName, res.Error)
 	s.ctrl.Finish()
 }
@@ -349,7 +361,8 @@ func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(webhookIncorrectConfiguration(appName, errors.New("payload signature check failed")), res.Error)
 	s.ctrl.Finish()
 }
@@ -374,7 +387,8 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal("any error", res.Error)
 	s.ctrl.Finish()
 }
@@ -455,7 +469,8 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 		router.New(sut).ServeHTTP(s.w, req)
 
 		var res response
-		json.Unmarshal(s.w.Body.Bytes(), &res)
+		err := json.Unmarshal(s.w.Body.Bytes(), &res)
+		require.NoError(s.T(), err)
 		s.Equal(scenario.expectedHttpCode, s.w.Code)
 		s.Equal(scenario.expectedError, res.Error)
 		s.Equal(scenario.expectedMessage, res.Message)
@@ -486,7 +501,8 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
@@ -506,7 +522,8 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusAccepted, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(refDeletionPushEventUnsupportedMessage(ref), res.Message)
 	s.ctrl.Finish()
 }
@@ -544,7 +561,8 @@ func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
-	json.Unmarshal(s.w.Body.Bytes(), &res)
+	err := json.Unmarshal(s.w.Body.Bytes(), &res)
+	require.NoError(s.T(), err)
 	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }

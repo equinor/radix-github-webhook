@@ -301,5 +301,8 @@ func render(w http.ResponseWriter, v interface{}) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	w.Write(data)
+	_, err = w.Write(data)
+	if err != nil {
+		log.Errorf("Failed to write respones: %v", err)
+	}
 }

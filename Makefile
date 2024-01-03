@@ -18,34 +18,12 @@ build: $(BINS)
 test:
 	go test -cover `go list ./...`
 
-staticcheck:
-	staticcheck ./...
-
-.PHONY: deploy
-deploy:
-	# Download deploy key + webhook shared secret
-	az keyvault secret download -f radix-github-webhook-radixregistration-values.yaml -n radix-github-webhook-radixregistration-values --vault-name radix-boot-dev-vault
-	# Add (also refreshes access tokens) and update helm repo
-	az acr helm repo add --name radixdev && helm repo update
-	# Install RR referring to the downloaded secrets
-	helm upgrade --install radix-github-webhook -f radix-github-webhook-radixregistration-values.yaml radixdev/radix-registration
-	# Delete secret file to avvoid being checked in
-	rm radix-github-webhook-radixregistration-values.yaml
-	# Allow operator to pick up RR. TODO should be handled with waiting for app namespace
-	sleep 5
-	# Create pipeline job
-	helm upgrade --install radix-pipeline-github-webhook radixdev/radix-pipeline-invocation \
-	    --set name="radix-github-webhook" \
-		--set cloneURL="git@github.com:equinor/radix-github-webhook.git" \
-		--set cloneBranch="master"
-
-.PHONY: undeploy
-undeploy:
-	helm del --purge radix-github-webhook
-	helm del --purge radix-pipeline-github-webhook
+.PHONY: lint
+lint: bootstrap
+	golangci-lint run --max-same-issues 0
 
 .PHONY: $(BINS)
-$(BINS): vendor
+$(BINS):
 	go build -ldflags '$(LDFLAGS)' -o bin/$@ .
 
 .PHONY: docker-build
@@ -60,26 +38,22 @@ docker-push: $(addsuffix -push,$(IMAGES))
 %-push:
 	docker push $(DOCKER_REGISTRY)/$*:$(IMAGE_TAG)
 
-HAS_GOMETALINTER := $(shell command -v gometalinter;)
-HAS_DEP          := $(shell command -v dep;)
-HAS_GIT          := $(shell command -v git;)
+.PHONY: mocks
+mocks: bootstrap
+	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
 
-vendor:
-ifndef HAS_GIT
-	$(error You must install git)
-endif
-ifndef HAS_DEP
-	go get -u github.com/golang/dep/cmd/dep
-endif
-ifndef HAS_GOMETALINTER
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
-endif
-	dep ensure
+HAS_SWAGGER       := $(shell command -v swagger;)
+HAS_GOLANGCI_LINT := $(shell command -v golangci-lint;)
+HAS_MOCKGEN       := $(shell command -v mockgen;)
 
 .PHONY: bootstrap
-bootstrap: vendor
-
-.PHONY: mocks
-mocks:
-	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
+bootstrap:
+ifndef HAS_SWAGGER
+	go install github.com/go-swagger/go-swagger/cmd/swagger@v0.30.5
+endif
+ifndef HAS_GOLANGCI_LINT
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+endif
+ifndef HAS_MOCKGEN
+	go install github.com/golang/mock/mockgen@v1.6.0
+endif
