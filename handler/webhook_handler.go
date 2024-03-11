@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -12,9 +13,8 @@ import (
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
-	"github.com/google/go-github/v53/github"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/google/go-github/v60/github"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -67,12 +67,7 @@ func NewWebHookHandler(apiServer radix.APIServer) *WebHookHandler {
 	}
 }
 
-// HandleWebhookEvents Main handler of events
-func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
-	return http.HandlerFunc(wh.handleEvent)
-}
-
-func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) {
+func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Increase metrics counter
 	metrics.IncreaseAllCounter()
 
@@ -83,7 +78,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 	}
 
 	_succeedWithMessage := func(statusCode int, message string) {
-		log.Infof("Success: %s", message)
+		zerolog.Ctx(req.Context()).Info().Msgf("Success: %s", message)
 		succeedWithMessage(w, event, statusCode, message)
 	}
 
@@ -130,7 +125,7 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		}
 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
+		jobSummary, err := wh.apiServer.TriggerPipeline(req.Context(), applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
 			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
 				_succeedWithMessage(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
@@ -181,7 +176,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 		return nil, err
 	}
 
-	application, err := wh.apiServer.GetApplication(applicationSummary.Name)
+	application, err := wh.apiServer.GetApplication(req.Context(), applicationSummary.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +189,7 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 }
 
 func (wh *WebHookHandler) getApplicationSummary(req *http.Request, sshURL string) (*models.ApplicationSummary, error) {
-	applicationSummaries, err := wh.apiServer.ShowApplications(sshURL)
+	applicationSummaries, err := wh.apiServer.ShowApplications(req.Context(), sshURL)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +281,7 @@ func succeedWithMessage(w http.ResponseWriter, event string, statusCode int, mes
 }
 
 func fail(w http.ResponseWriter, event string, statusCode int, err error) {
-	log.Printf("%s\n", err)
+	// log.Printf("%s\n", err)
 	w.WriteHeader(statusCode)
 	render(w, WebhookResponse{
 		Ok:    false,
@@ -302,7 +297,7 @@ func render(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	_, err = w.Write(data)
-	if err != nil {
-		log.Errorf("Failed to write respones: %v", err)
-	}
+	// if err != nil {
+	// 	log.Errorf("Failed to write respones: %v", err)
+	// }
 }

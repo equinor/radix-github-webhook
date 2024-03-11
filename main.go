@@ -4,15 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/equinor/radix-github-webhook/handler"
 	"github.com/equinor/radix-github-webhook/internal"
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/equinor/radix-github-webhook/router"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 )
@@ -20,12 +26,6 @@ import (
 const serviceAccountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 func main() {
-	logLevel, err := log.ParseLevel(os.Getenv("LOG_LEVEL"))
-	if err != nil {
-		logLevel = log.InfoLevel
-	}
-	log.SetLevel(logLevel)
-
 	fs := initializeFlagSet()
 	var (
 		port              = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
@@ -35,17 +35,41 @@ func main() {
 
 	tokenSource, err := getTokenSource()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Failed to get token source")
 	}
+
+	logLevel := os.Getenv("LOG_LEVEL")
+	logPretty, _ := strconv.ParseBool(os.Getenv("LOG_PRETTY"))
+	ctx := setupLogger(context.Background(), logLevel, logPretty)
 
 	client := oauth2.NewClient(context.Background(), oauth2.ReuseTokenSource(nil, tokenSource))
 	wh := handler.NewWebHookHandler(radix.NewAPIServerStub(apiServerEndpoint, client))
-	router := router.New(wh.HandleWebhookEvents())
-	err = http.ListenAndServe(fmt.Sprintf(":%s", *port), router)
-
-	if err != nil {
-		log.Fatalf("Unable to start serving: %v", err)
+	router := router.New(wh)
+	srv := &http.Server{
+		Addr:        fmt.Sprintf(":%s", *port),
+		Handler:     router,
+		BaseContext: func(_ net.Listener) context.Context { return ctx },
 	}
+
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatal().Err(err).Msg("Unable to start server")
+	}
+}
+
+func setupLogger(ctx context.Context, level string, pretty bool) context.Context {
+	var logWriter io.Writer = os.Stderr
+	if pretty {
+		logWriter = &zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}
+	}
+
+	logLevel, err := zerolog.ParseLevel(level)
+	if err != nil {
+		logLevel = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(logLevel)
+	log.Logger = zerolog.New(logWriter).With().Timestamp().Logger()
+
+	return log.Logger.WithContext(ctx)
 }
 
 func initializeFlagSet() *pflag.FlagSet {

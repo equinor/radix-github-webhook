@@ -2,6 +2,7 @@ package radix
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,8 +10,7 @@ import (
 	"net/url"
 
 	"github.com/equinor/radix-github-webhook/models"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 const buildDeployPipeline = "build-deploy"
@@ -33,9 +33,9 @@ func NewAPIServerStub(apiServerEndPoint string, client *http.Client) APIServer {
 }
 
 // ShowApplications Implementation
-func (api *APIServerStub) ShowApplications(sshURL string) ([]*models.ApplicationSummary, error) {
+func (api *APIServerStub) ShowApplications(ctx context.Context, sshURL string) ([]*models.ApplicationSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationSummariesEndPointPattern, url.QueryEscape(sshURL))
-	response, err := api.makeRequest("GET", url)
+	response, err := api.makeRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -49,9 +49,9 @@ func (api *APIServerStub) ShowApplications(sshURL string) ([]*models.Application
 }
 
 // GetApplication Implementation
-func (api *APIServerStub) GetApplication(appName string) (*models.Application, error) {
+func (api *APIServerStub) GetApplication(ctx context.Context, appName string) (*models.Application, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+getApplicationEndPointPattern, appName)
-	response, err := api.makeRequest("GET", url)
+	response, err := api.makeRequest(ctx, "GET", url)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (api *APIServerStub) GetApplication(appName string) (*models.Application, e
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
+func (api *APIServerStub) TriggerPipeline(ctx context.Context, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
 	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, TriggeredBy: triggeredBy}
 
@@ -74,7 +74,7 @@ func (api *APIServerStub) TriggerPipeline(appName, branch, commitID, triggeredBy
 		return nil, err
 	}
 
-	response, err := api.makeRequestWithBody("POST", url, body)
+	response, err := api.makeRequestWithBody(ctx, "POST", url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -87,21 +87,21 @@ func (api *APIServerStub) TriggerPipeline(appName, branch, commitID, triggeredBy
 	return jobSummary, nil
 }
 
-func (api *APIServerStub) makeRequest(method, url string) ([]byte, error) {
-	return api.makeRequestWithBody(method, url, []byte{})
+func (api *APIServerStub) makeRequest(ctx context.Context, method, url string) ([]byte, error) {
+	return api.makeRequestWithBody(ctx, method, url, []byte{})
 }
 
-func (api *APIServerStub) makeRequestWithBody(method, url string, reqBody []byte) ([]byte, error) {
-	req, err := http.NewRequest(method, url, bytes.NewReader(reqBody))
+func (api *APIServerStub) makeRequestWithBody(ctx context.Context, method, url string, reqBody []byte) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, errors.Errorf("Unable create request for starting pipeline: %v", err)
+		return nil, fmt.Errorf("unable create request for starting pipeline: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
+	zerolog.Ctx(ctx).Info().Str("method", method).Str("url", url).Msg("Request to Radix API")
 
-	log.Infof("%s: %s", method, url)
 	resp, err := api.client.Do(req)
 	if err != nil {
-		return nil, errors.Errorf("Request failed: %v", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -120,7 +120,7 @@ func readBody(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Errorf("Invalid response: %v", err)
+		return nil, fmt.Errorf("invalid response: %w", err)
 	}
 
 	return body, nil
