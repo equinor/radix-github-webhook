@@ -50,7 +50,7 @@ func main() {
 		Handler:     router,
 		BaseContext: func(_ net.Listener) context.Context { return ctx },
 	}
-
+	log.Info().Msgf("API is serving on address %s", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to start server")
 	}

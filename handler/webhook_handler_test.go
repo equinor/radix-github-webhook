@@ -48,7 +48,6 @@ func (s *handlerTestSuite) SetupTest() {
 func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
 	sut := NewWebHookHandler(s.apiServer)
 	req, _ := http.NewRequest("POST", "/", nil)
-
 	router.New(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
