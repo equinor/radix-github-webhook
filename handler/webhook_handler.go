@@ -2,7 +2,7 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -12,9 +12,9 @@ import (
 	"github.com/equinor/radix-github-webhook/metrics"
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
-	"github.com/google/go-github/v53/github"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/gin-gonic/gin"
+	"github.com/google/go-github/v60/github"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -55,56 +55,62 @@ type WebhookResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// WebHookHandler Instance
-type WebHookHandler struct {
+// webhookHandler Instance
+type webhookHandler struct {
 	apiServer radix.APIServer
 }
 
 // NewWebHookHandler Constructor
-func NewWebHookHandler(apiServer radix.APIServer) *WebHookHandler {
-	return &WebHookHandler{
+func NewWebHookHandler(apiServer radix.APIServer) gin.HandlerFunc {
+	handler := &webhookHandler{
 		apiServer,
 	}
+
+	return handler.HandleFunc
 }
 
-// HandleWebhookEvents Main handler of events
-func (wh *WebHookHandler) HandleWebhookEvents() http.Handler {
-	return http.HandlerFunc(wh.handleEvent)
-}
-
-func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) {
+func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 	// Increase metrics counter
 	metrics.IncreaseAllCounter()
 
-	event := req.Header.Get("x-github-event")
+	event := c.GetHeader("x-github-event")
 
-	_fail := func(statusCode int, err error) {
-		fail(w, event, statusCode, err)
+	writeErrorResponse := func(statusCode int, err error) {
+		_ = c.Error(err)
+		c.AbortWithStatusJSON(statusCode, WebhookResponse{
+			Ok:    false,
+			Event: event,
+			Error: err.Error(),
+		})
 	}
 
-	_succeedWithMessage := func(statusCode int, message string) {
-		log.Infof("Success: %s", message)
-		succeedWithMessage(w, event, statusCode, message)
+	writeSuccessResponse := func(statusCode int, message string) {
+		zerolog.Ctx(c.Request.Context()).Info().Msg(message)
+		c.JSON(statusCode, WebhookResponse{
+			Ok:      true,
+			Event:   event,
+			Message: message,
+		})
 	}
 
 	if len(strings.TrimSpace(event)) == 0 {
 		metrics.IncreaseNotGithubEventCounter()
-		_fail(http.StatusBadRequest, errors.New(notAGithubEventMessage))
+		writeErrorResponse(http.StatusBadRequest, errors.New(notAGithubEventMessage))
 		return
 	}
 
 	// Need to parse webhook before validation because the secret is taken from the matching repo
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		metrics.IncreaseFailedParsingCounter()
-		_fail(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
+		writeErrorResponse(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
 		return
 	}
-
-	payload, err := github.ParseWebHook(github.WebHookType(req), body)
+	webhookEventType := github.WebHookType(c.Request)
+	payload, err := github.ParseWebHook(webhookEventType, body)
 	if err != nil {
 		metrics.IncreaseFailedParsingCounter()
-		_fail(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
+		writeErrorResponse(http.StatusBadRequest, fmt.Errorf("could not parse webhook: err=%s ", err))
 		return
 	}
 
@@ -118,48 +124,48 @@ func (wh *WebHookHandler) handleEvent(w http.ResponseWriter, req *http.Request) 
 		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
 
 		if isPushEventForRefDeletion(e) {
-			_succeedWithMessage(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
+			writeSuccessResponse(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
 			return
 		}
 
-		applicationSummary, err := wh.getApplication(req, body, sshURL)
+		applicationSummary, err := wh.getApplication(c.Request, body, sshURL)
 		if err != nil {
 			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
-			_fail(http.StatusBadRequest, err)
+			writeErrorResponse(http.StatusBadRequest, err)
 			return
 		}
 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(applicationSummary.Name, branch, commitID, triggeredBy)
+		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, branch, commitID, triggeredBy)
 		if err != nil {
 			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
-				_succeedWithMessage(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
+				writeSuccessResponse(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
 				return
 			}
 			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
-			_fail(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
+			writeErrorResponse(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
 		}
 
-		_succeedWithMessage(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
+		writeSuccessResponse(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
 
 	case *github.PingEvent:
 		// sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
 		sshURL := e.Repo.GetSSHURL()
 		metrics.IncreasePingGithubEventTypeCounter(sshURL)
 
-		applicationSummary, err := wh.getApplication(req, body, sshURL)
+		applicationSummary, err := wh.getApplication(c.Request, body, sshURL)
 		if err != nil {
 			metrics.IncreaseFailedCloneURLValidationCounter(sshURL)
-			_fail(http.StatusBadRequest, err)
+			writeErrorResponse(http.StatusBadRequest, err)
 			return
 		}
 
-		_succeedWithMessage(http.StatusOK, webhookCorrectConfiguration(applicationSummary.Name))
+		writeSuccessResponse(http.StatusOK, webhookCorrectConfiguration(applicationSummary.Name))
 
 	default:
 		metrics.IncreaseUnsupportedGithubEventTypeCounter()
-		_fail(http.StatusBadRequest, errors.New(unhandledEventTypeMessage(github.WebHookType(req))))
+		writeErrorResponse(http.StatusBadRequest, errors.New(unhandledEventTypeMessage(webhookEventType)))
 		return
 	}
 }
@@ -175,13 +181,13 @@ func getCommitID(e *github.PushEvent) string {
 	return *e.After
 }
 
-func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL string) (*models.ApplicationSummary, error) {
+func (wh *webhookHandler) getApplication(req *http.Request, body []byte, sshURL string) (*models.ApplicationSummary, error) {
 	applicationSummary, err := wh.getApplicationSummary(req, sshURL)
 	if err != nil {
 		return nil, err
 	}
 
-	application, err := wh.apiServer.GetApplication(applicationSummary.Name)
+	application, err := wh.apiServer.GetApplication(req.Context(), applicationSummary.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +199,8 @@ func (wh *WebHookHandler) getApplication(req *http.Request, body []byte, sshURL 
 	return applicationSummary, nil
 }
 
-func (wh *WebHookHandler) getApplicationSummary(req *http.Request, sshURL string) (*models.ApplicationSummary, error) {
-	applicationSummaries, err := wh.apiServer.ShowApplications(sshURL)
+func (wh *webhookHandler) getApplicationSummary(req *http.Request, sshURL string) (*models.ApplicationSummary, error) {
+	applicationSummaries, err := wh.apiServer.ShowApplications(req.Context(), sshURL)
 	if err != nil {
 		return nil, err
 	}
@@ -274,35 +280,4 @@ func validatePayload(header http.Header, payload []byte, sharedSecret []byte) er
 	}
 
 	return nil
-}
-
-func succeedWithMessage(w http.ResponseWriter, event string, statusCode int, message string) {
-	w.WriteHeader(statusCode)
-	render(w, WebhookResponse{
-		Ok:      true,
-		Event:   event,
-		Message: message,
-	})
-}
-
-func fail(w http.ResponseWriter, event string, statusCode int, err error) {
-	log.Printf("%s\n", err)
-	w.WriteHeader(statusCode)
-	render(w, WebhookResponse{
-		Ok:    false,
-		Event: event,
-		Error: err.Error(),
-	})
-}
-
-func render(w http.ResponseWriter, v interface{}) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	_, err = w.Write(data)
-	if err != nil {
-		log.Errorf("Failed to write respones: %v", err)
-	}
 }
