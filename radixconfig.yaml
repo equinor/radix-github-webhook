@@ -20,6 +20,8 @@ spec:
     publicPort: http
     variables:
       LOG_LEVEL: info
+      LOG_PRETTY: "false"
+      GIN_MODE: "release"
     environmentConfig:
     - environment: qa
       variables:
