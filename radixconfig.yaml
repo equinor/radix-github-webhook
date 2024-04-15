@@ -12,6 +12,7 @@ spec:
       from: master
   components:
   - name: "webhook"
+    readOnlyFileSystem: true
     src: "."
     dockerfileName: "Dockerfile"
     ports:
