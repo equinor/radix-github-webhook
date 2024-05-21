@@ -48,7 +48,7 @@ func (s *handlerTestSuite) SetupTest() {
 func (s *handlerTestSuite) Test_MissingEventTypeHeader() {
 	sut := NewWebHookHandler(s.apiServer)
 	req, _ := http.NewRequest("POST", "/", nil)
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -65,7 +65,7 @@ func (s *handlerTestSuite) Test_UnhandledEventType() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "pull_request")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -84,7 +84,7 @@ func (s *handlerTestSuite) Test_PingEventShowApplicationsReturnError() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -104,7 +104,7 @@ func (s *handlerTestSuite) Test_PingEventUnmatchedRepo() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -124,7 +124,7 @@ func (s *handlerTestSuite) Test_PingEventMultipleRepos() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -150,7 +150,7 @@ func (s *handlerTestSuite) Test_PingEventGetApplicationReturnsError() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -174,7 +174,7 @@ func (s *handlerTestSuite) Test_PingEventIncorrectSecret() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -202,7 +202,7 @@ func (s *handlerTestSuite) Test_PingEventWithCorrectSecret() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "ping")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -223,7 +223,7 @@ func (s *handlerTestSuite) Test_PushEventShowApplicationsReturnsError() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -310,7 +310,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 		req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("X-GitHub-Event", "push")
 		req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte(sharedSecret), payload))
-		router.New(sut).ServeHTTP(s.w, req)
+		router.NewWebhook(sut).ServeHTTP(s.w, req)
 		s.Equal(scenario.expectedHttpCode, s.w.Code)
 		var res response
 		err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -332,7 +332,7 @@ func (s *handlerTestSuite) Test_PushEventMultipleReposWithoutAppName() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -357,7 +357,7 @@ func (s *handlerTestSuite) Test_PushEventIncorrectSecret() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("incorrectsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -383,7 +383,7 @@ func (s *handlerTestSuite) Test_PushEventGetApplicationReturnsError() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusBadRequest, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -465,7 +465,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 		req.Header.Add("X-GitHub-Event", "push")
 		req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
 
-		router.New(sut).ServeHTTP(s.w, req)
+		router.NewWebhook(sut).ServeHTTP(s.w, req)
 
 		var res response
 		err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -497,7 +497,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -518,7 +518,7 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusAccepted, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
@@ -557,7 +557,7 @@ func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-GitHub-Event", "push")
 	req.Header.Add("X-Hub-Signature-256", s.computeSignature([]byte("sharedsecret"), payload))
-	router.New(sut).ServeHTTP(s.w, req)
+	router.NewWebhook(sut).ServeHTTP(s.w, req)
 	s.Equal(http.StatusOK, s.w.Code)
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
