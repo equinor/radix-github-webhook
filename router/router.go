@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// New creates a mux router for handling Github webhook requests
-func New(webHookHandler gin.HandlerFunc) http.Handler {
+// NewWebhook creates a mux router for handling Github webhook requests
+func NewWebhook(webHookHandler gin.HandlerFunc) http.Handler {
 	engine := gin.New()
 	engine.RemoveExtraSlash = true
 	engine.Use(commongin.SetZerologLogger(commongin.ZerologLoggerWithRequestId))
@@ -17,8 +17,17 @@ func New(webHookHandler gin.HandlerFunc) http.Handler {
 	engine.Handle(http.MethodGet, "/health", func(ctx *gin.Context) {
 		ctx.Writer.WriteHeader(http.StatusOK)
 	})
-	engine.Handle(http.MethodGet, "/metrics", gin.WrapH(promhttp.Handler()))
 	engine.Handle(http.MethodPost, "/events/github", webHookHandler)
 	engine.Handle(http.MethodPost, "/", webHookHandler)
+	return engine
+}
+
+// NewWebhook creates a mux router for handling Github webhook requests
+func NewMetrics() http.Handler {
+	engine := gin.New()
+	engine.RemoveExtraSlash = true
+	engine.Use(commongin.SetZerologLogger(commongin.ZerologLoggerWithRequestId))
+	engine.Use(commongin.ZerologRequestLogger(), gin.Recovery())
+	engine.Handle(http.MethodGet, "/metrics", gin.WrapH(promhttp.Handler()))
 	return engine
 }
