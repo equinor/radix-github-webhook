@@ -18,7 +18,12 @@ spec:
     ports:
     - name: http
       port: 3001
+    - name: metrics
+      port: 9090
     publicPort: http
+    monitoring: true
+    monitoringConfig:
+      portName: metrics
     variables:
       LOG_LEVEL: info
       LOG_PRETTY: "false"
@@ -32,7 +37,6 @@ spec:
           memory: "30Mi"
           cpu: "10m"
         limits:
-          memory: "30Mi"
           cpu: "1000m"
     - environment: prod
       replicas: 2
@@ -43,5 +47,4 @@ spec:
           memory: "75Mi"
           cpu: "10m"
         limits:
-          memory: "75Mi"
           cpu: "1000m"

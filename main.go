@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/equinor/radix-github-webhook/handler"
@@ -19,57 +20,120 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"os/signal"
+
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 )
 
-const serviceAccountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+const (
+	serviceAccountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	defaultPort             = "3001"
+	defaultMetricsPort      = "9090"
+)
 
 func main() {
 	fs := initializeFlagSet()
 	var (
-		port              = fs.StringP("port", "p", defaultPort(), "The port for which we listen to events on")
+		port              = fs.StringP("port", "p", defaultPort, "The port for which we listen to events on")
+		metricPort        = fs.String("metrics-port", defaultMetricsPort, "The metrics API server port")
 		apiServerEndpoint = getAPIServerEndpoint()
 	)
 	parseFlagsFromArgs(fs)
 
-	tokenSource, err := getTokenSource()
+	setupLogger()
+
+	srv, err := initializeServer(*port, apiServerEndpoint)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to get token source")
+		log.Fatal().Err(err).Msg("Failed to initialize API server")
 	}
 
-	logLevel := os.Getenv("LOG_LEVEL")
-	logPretty, _ := strconv.ParseBool(os.Getenv("LOG_PRETTY"))
-	ctx := setupLogger(context.Background(), logLevel, logPretty)
+	metricsSrv := initializeMetricsServer(*metricPort)
 
-	client := oauth2.NewClient(context.Background(), oauth2.ReuseTokenSource(nil, tokenSource))
-	wh := handler.NewWebHookHandler(radix.NewAPIServerStub(apiServerEndpoint, client))
-	router := router.New(wh)
-	srv := &http.Server{
-		Addr:        fmt.Sprintf(":%s", *port),
-		Handler:     router,
-		BaseContext: func(_ net.Listener) context.Context { return ctx },
-	}
-	log.Info().Msgf("API is serving on address %s", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal().Err(err).Msg("Unable to start server")
+	startServers(srv, metricsSrv)
+
+	shutdownServersGracefulOnSignal(srv, metricsSrv)
+}
+
+func startServers(servers ...*http.Server) {
+	for _, srv := range servers {
+		go func() {
+			log.Info().Msgf("Starting server on address %s", srv.Addr)
+			if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				log.Fatal().Err(err).Msgf("Unable to start server on address %s", srv.Addr)
+			}
+		}()
 	}
 }
 
-func setupLogger(ctx context.Context, level string, pretty bool) context.Context {
+func shutdownServersGracefulOnSignal(servers ...*http.Server) {
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, syscall.SIGTERM, syscall.SIGINT)
+	s := <-stopCh
+	log.Info().Msgf("Received %v signal", s)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
+
+	for _, srv := range servers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Info().Msgf("Shutting down server on address %s", srv.Addr)
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				log.Warn().Err(err).Msgf("shutdown of server on address %s returned an error", srv.Addr)
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+func initializeServer(port, apiServerEndpoint string) (*http.Server, error) {
+	log.Info().Msgf("Initializing API server on port %s", port)
+
+	tokenSource, err := getTokenSource()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tokenSource: %w", err)
+	}
+
+	client := oauth2.NewClient(context.Background(), oauth2.ReuseTokenSource(nil, tokenSource))
+	wh := handler.NewWebHookHandler(radix.NewAPIServerStub(apiServerEndpoint, client))
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: router.NewWebhook(wh),
+	}
+
+	return srv, nil
+}
+
+func initializeMetricsServer(port string) *http.Server {
+	log.Info().Msgf("Initializing metrics server on port %s", port)
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: router.NewMetrics(),
+	}
+	return srv
+}
+
+func setupLogger() {
+	level := os.Getenv("LOG_LEVEL")
+	pretty, _ := strconv.ParseBool(os.Getenv("LOG_PRETTY"))
+
 	var logWriter io.Writer = os.Stderr
 	if pretty {
 		logWriter = &zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}
 	}
 
 	logLevel, err := zerolog.ParseLevel(level)
-	if err != nil {
+	if err != nil || logLevel == zerolog.NoLevel {
 		logLevel = zerolog.InfoLevel
 	}
+
 	zerolog.SetGlobalLevel(logLevel)
 	log.Logger = zerolog.New(logWriter).With().Timestamp().Logger()
-
-	return log.Logger.WithContext(ctx)
+	zerolog.DefaultContextLogger = &log.Logger
 }
 
 func initializeFlagSet() *pflag.FlagSet {
@@ -123,8 +187,4 @@ func parseFlagsFromArgs(fs *pflag.FlagSet) {
 		fs.Usage()
 		os.Exit(2)
 	}
-}
-
-func defaultPort() string {
-	return "3001"
 }
