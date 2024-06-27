@@ -39,7 +39,7 @@ spec:
           memory: "30Mi"
           cpu: "10m"
         limits:
-          cpu: "100m"
+          cpu: "1000m"
         runtime:
           architecture: arm64
         horizontalScaling:
@@ -61,4 +61,4 @@ spec:
           memory: "75Mi"
           cpu: "10m"
         limits:
-          cpu: "100m"
+          cpu: "1000m"
