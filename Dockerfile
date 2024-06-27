@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine3.20 as builder
+FROM docker.io/golang:1.22-alpine3.20 as builder
 ENV CGO_ENABLED=0 \
     GOOS=linux
 WORKDIR /src
