@@ -3,6 +3,8 @@ kind: RadixApplication
 metadata:
   name: radix-github-webhook
 spec:
+  build:
+    useBuildKit: true
   environments:
   - name: prod
     build:
@@ -37,7 +39,19 @@ spec:
           memory: "30Mi"
           cpu: "10m"
         limits:
-          cpu: "1000m"
+          cpu: "100m"
+        runtime:
+          architecture: arm64
+        horizontalScaling:
+          maxReplicas: 1
+          minReplicas: 0
+          triggers:
+            - name: cron
+              cron:
+                timezone: Europe/Oslo
+                start: 0 7 * * 1-5 # 07:00 Monday - Friday
+                end: 0 17 * * 1-5 # 17:00 Monday - Friday
+                desiredReplicas: 1           
     - environment: prod
       replicas: 2
       variables:
@@ -47,4 +61,4 @@ spec:
           memory: "75Mi"
           cpu: "10m"
         limits:
-          cpu: "1000m"
+          cpu: "100m"
