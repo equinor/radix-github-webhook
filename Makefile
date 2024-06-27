@@ -43,7 +43,7 @@ mocks: bootstrap
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
 
 .PHONY: generate
-generate: radixconfigs mocks
+generate: mocks
 
 .PHONY: verify-generate
 verify-generate: generate
