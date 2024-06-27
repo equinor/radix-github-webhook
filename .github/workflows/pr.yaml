@@ -25,7 +25,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.58.2
 
@@ -41,3 +41,28 @@ jobs:
         run: go mod download
       - name: Run Tests
         run: go test -cover `go list ./...`
+
+  verify-code-generation:
+    name: Verify Code Generation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Verify Code Generation
+        run: |
+          make verify-generate
+
+  validate-radixconfig:
+    name: Validate RadixConfig
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Get Azure principal token for Radix'
+        run: |
+          echo "APP_SERVICE_ACCOUNT_TOKEN=hello-world" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
+      - name: 'Validate public-site'
+        uses: equinor/radix-github-actions@v1
+        with:
+          args: validate radix-config --config-file radixconfig.yaml

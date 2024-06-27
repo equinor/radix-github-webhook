@@ -42,17 +42,20 @@ docker-push: $(addsuffix -push,$(IMAGES))
 mocks: bootstrap
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
 
-HAS_SWAGGER       := $(shell command -v swagger;)
+.PHONY: generate
+generate: radixconfigs mocks
+
+.PHONY: verify-generate
+verify-generate: generate
+	git diff --exit-code
+
 HAS_GOLANGCI_LINT := $(shell command -v golangci-lint;)
 HAS_MOCKGEN       := $(shell command -v mockgen;)
 
 .PHONY: bootstrap
 bootstrap:
-ifndef HAS_SWAGGER
-	go install github.com/go-swagger/go-swagger/cmd/swagger@v0.30.5
-endif
 ifndef HAS_GOLANGCI_LINT
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.58.2
 endif
 ifndef HAS_MOCKGEN
 	go install github.com/golang/mock/mockgen@v1.6.0
