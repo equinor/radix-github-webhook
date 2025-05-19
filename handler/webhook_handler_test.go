@@ -301,7 +301,7 @@ func (s *handlerTestSuite) Test_PushEventUnmatchedRepo() {
 				Times(1)
 			jobSummary := models.JobSummary{Name: "jobname", AppName: expectAppDetail.appName, Branch: "master", CommitID: commitID, TriggeredBy: ""}
 			s.apiServer.EXPECT().
-				TriggerPipeline(gomock.Any(), expectAppDetail.appName, "master", commitID, "").
+				TriggerPipeline(gomock.Any(), expectAppDetail.appName, "master", "branch", commitID, "").
 				Return(&jobSummary, nil).
 				Times(1)
 		}
@@ -457,7 +457,7 @@ func (s *handlerTestSuite) Test_PushEventTriggerPipelineReturnsError() {
 
 		s.apiServer.EXPECT().ShowApplications(gomock.Any(), "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
 		s.apiServer.EXPECT().GetApplication(gomock.Any(), appName).Return(appDetail, nil).Times(1)
-		s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, "master", commitID, "").Return(nil, scenario.apiError).Times(1)
+		s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, "master", "branch", commitID, "").Return(nil, scenario.apiError).Times(1)
 
 		sut := NewWebHookHandler(s.apiServer)
 		req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
@@ -490,7 +490,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	jobSummary := models.JobSummary{Name: "jobname", AppName: "jobappname", Branch: "jobbranchname", CommitID: "jobcommitID", TriggeredBy: "anyuser"}
 	s.apiServer.EXPECT().ShowApplications(gomock.Any(), "git@github.com:equinor/repo-4.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
 	s.apiServer.EXPECT().GetApplication(gomock.Any(), appName).Return(appDetail, nil).Times(1)
-	s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, "master", commitID, "").Return(&jobSummary, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, "master", "branch", commitID, "").Return(&jobSummary, nil).Times(1)
 
 	sut := NewWebHookHandler(s.apiServer)
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
@@ -559,7 +559,7 @@ func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
 	jobSummary := models.JobSummary{Name: "jobname", AppName: "jobappname", Branch: "jobbranchname", CommitID: headCommitID, TriggeredBy: "anyuser"}
 	s.apiServer.EXPECT().ShowApplications(gomock.Any(), "git@github.com:equinor/repo-1.git").Return([]*models.ApplicationSummary{&appSummary}, nil).Times(1)
 	s.apiServer.EXPECT().GetApplication(gomock.Any(), appName).Return(appDetail, nil).Times(1)
-	s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, tag, headCommitID, "").Return(&jobSummary, nil).Times(1)
+	s.apiServer.EXPECT().TriggerPipeline(gomock.Any(), appName, tag, "tag", headCommitID, "").Return(&jobSummary, nil).Times(1)
 
 	sut := NewWebHookHandler(s.apiServer)
 	req, _ := http.NewRequest("POST", "/", bytes.NewReader(payload))
@@ -580,7 +580,7 @@ type response struct {
 	Error   string `json:"error"`
 }
 
-// GitHubPayloadBuilder Handles construction of github payload
+// GitHubPayloadBuilder Handles construction of GitHub payload
 type GitHubPayloadBuilder interface {
 	withRef(refs string) GitHubPayloadBuilder
 	withAfter(after string) GitHubPayloadBuilder

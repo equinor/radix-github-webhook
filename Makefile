@@ -38,6 +38,9 @@ docker-push: $(addsuffix -push,$(IMAGES))
 %-push:
 	docker push $(DOCKER_REGISTRY)/$*:$(IMAGE_TAG)
 
+.PHONY: deploy
+deploy: docker-build docker-push
+
 .PHONY: mocks
 mocks: bootstrap
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
