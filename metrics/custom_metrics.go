@@ -5,10 +5,11 @@ import (
 )
 
 const (
-	sshURLLabel   = "radix_webhook_request_ssh_url"
-	branchLabel   = "radix_webhook_request_branch"
-	commitIDLabel = "radix_webhook_request_commit_id"
-	appNameLabel  = "radix_webhook_request_app_name"
+	sshURLLabel      = "radix_webhook_request_ssh_url"
+	gitRefsLabel     = "radix_webhook_request_branch"
+	gitRefsTypeLabel = "radix_webhook_request_refs_type"
+	commitIDLabel    = "radix_webhook_request_commit_id"
+	appNameLabel     = "radix_webhook_request_app_name"
 )
 
 var (
@@ -55,21 +56,21 @@ var (
 			Name: "radix_webhook_request_push_github_event_type_counter",
 			Help: "Counter for push GitHub event type requests",
 		},
-		[]string{sshURLLabel, branchLabel, commitIDLabel},
+		[]string{sshURLLabel, gitRefsLabel, gitRefsTypeLabel, commitIDLabel},
 	)
 	pushEventTypeTriggerPipelineCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "radix_webhook_request_push_github_event_type_trigger_pipeline_counter",
 			Help: "Counter for push GitHub event type trigger pipeline requests",
 		},
-		[]string{sshURLLabel, branchLabel, commitIDLabel, appNameLabel},
+		[]string{sshURLLabel, gitRefsLabel, gitRefsTypeLabel, commitIDLabel, appNameLabel},
 	)
 	pushEventTypeFailedTriggerPipelineCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "radix_webhook_request_push_github_event_type_failed_trigger_pipeline_counter",
 			Help: "Counter for push GitHub event type failed trigger pipeline requests",
 		},
-		[]string{sshURLLabel, branchLabel, commitIDLabel},
+		[]string{sshURLLabel, gitRefsLabel, gitRefsTypeLabel, commitIDLabel},
 	)
 )
 
@@ -116,16 +117,16 @@ func IncreaseFailedCloneURLValidationCounter(sshURL string) {
 }
 
 // IncreasePushGithubEventTypeCounter increases all GitHub push event type request counter
-func IncreasePushGithubEventTypeCounter(sshURL, branch, commitID string) {
-	pushEventTypeCounter.With(prometheus.Labels{sshURLLabel: sshURL, branchLabel: branch, commitIDLabel: commitID}).Inc()
+func IncreasePushGithubEventTypeCounter(sshURL, gitRefs, gitRefsType, commitID string) {
+	pushEventTypeCounter.With(prometheus.Labels{sshURLLabel: sshURL, gitRefsLabel: gitRefs, gitRefsTypeLabel: gitRefsType, commitIDLabel: commitID}).Inc()
 }
 
 // IncreasePushGithubEventTypeTriggerPipelineCounter increases GitHub push event type trigger pipeline request counter
-func IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, appName string) {
-	pushEventTypeTriggerPipelineCounter.With(prometheus.Labels{sshURLLabel: sshURL, branchLabel: branch, commitIDLabel: commitID, appNameLabel: appName}).Inc()
+func IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, gitRefs, gitRefsType, commitID, appName string) {
+	pushEventTypeTriggerPipelineCounter.With(prometheus.Labels{sshURLLabel: sshURL, gitRefsLabel: gitRefs, gitRefsTypeLabel: gitRefsType, commitIDLabel: commitID, appNameLabel: appName}).Inc()
 }
 
 // IncreasePushGithubEventTypeFailedTriggerPipelineCounter increases GitHub push event type failed trigger pipeline request counter
-func IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID string) {
-	pushEventTypeFailedTriggerPipelineCounter.With(prometheus.Labels{sshURLLabel: sshURL, branchLabel: branch, commitIDLabel: commitID}).Inc()
+func IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, gitRefs, gitRefsType, commitID string) {
+	pushEventTypeFailedTriggerPipelineCounter.With(prometheus.Labels{sshURLLabel: sshURL, gitRefsLabel: gitRefs, gitRefsTypeLabel: gitRefsType, commitIDLabel: commitID}).Inc()
 }

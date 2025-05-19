@@ -65,9 +65,9 @@ func (api *APIServerStub) GetApplication(ctx context.Context, appName string) (*
 }
 
 // TriggerPipeline Implementation
-func (api *APIServerStub) TriggerPipeline(ctx context.Context, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
+func (api *APIServerStub) TriggerPipeline(ctx context.Context, appName, gitRefs, gitRefsType, commitID, triggeredBy string) (*models.JobSummary, error) {
 	url := fmt.Sprintf(api.apiServerEndPoint+startPipelineEndPointPattern, appName, buildDeployPipeline)
-	parameters := models.PipelineParameters{Branch: branch, CommitID: commitID, TriggeredBy: triggeredBy}
+	parameters := models.PipelineParameters{Branch: gitRefs, GitEventRefsType: gitRefsType, CommitID: commitID, TriggeredBy: triggeredBy}
 
 	body, err := json.Marshal(parameters)
 	if err != nil {

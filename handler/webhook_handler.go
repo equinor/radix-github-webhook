@@ -116,12 +116,12 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 
 	switch e := payload.(type) {
 	case *github.PushEvent:
-		branch := getBranch(e)
+		gitRef, gitRefsType := getGitRefs(e)
 		commitID := getCommitID(e)
 		sshURL := e.Repo.GetSSHURL()
 		triggeredBy := getPushTriggeredBy(e)
 
-		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
+		metrics.IncreasePushGithubEventTypeCounter(sshURL, gitRef, gitRefsType, commitID)
 
 		if isPushEventForRefDeletion(e) {
 			writeSuccessResponse(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
@@ -135,14 +135,14 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 			return
 		}
 
-		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, branch, commitID, triggeredBy)
+		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, gitRef, gitRefsType, commitID, applicationSummary.Name)
+		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, gitRef, getApiGitRefsType(gitRefsType), commitID, triggeredBy)
 		if err != nil {
 			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
 				writeSuccessResponse(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
 				return
 			}
-			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
+			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, gitRef, gitRefsType, commitID)
 			writeErrorResponse(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
 		}
@@ -168,6 +168,16 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 		writeErrorResponse(http.StatusBadRequest, errors.New(unhandledEventTypeMessage(webhookEventType)))
 		return
 	}
+}
+
+func getApiGitRefsType(gitRefsType string) string {
+	switch gitRefsType {
+	case "heads":
+		return "branch"
+	case "tags":
+		return "tag"
+	}
+	return ""
 }
 
 func getCommitID(e *github.PushEvent) string {
@@ -254,10 +264,10 @@ func getPushTriggeredBy(pushEvent *github.PushEvent) string {
 	return ""
 }
 
-func getBranch(pushEvent *github.PushEvent) string {
+func getGitRefs(pushEvent *github.PushEvent) (string, string) {
 	// Remove refs/heads from ref
 	ref := strings.Split(*pushEvent.Ref, "/")
-	return strings.Join(ref[2:], "/")
+	return strings.Join(ref[2:], "/"), ref[1]
 }
 
 func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
