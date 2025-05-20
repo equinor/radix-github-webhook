@@ -502,7 +502,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
 	require.NoError(s.T(), err)
-	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.GitRefsType, jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
 
@@ -571,7 +571,7 @@ func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
 	require.NoError(s.T(), err)
-	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID), res.Message)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.GitRefsType, jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
 

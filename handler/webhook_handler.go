@@ -42,8 +42,8 @@ var (
 	createPipelineJobErrorMessage = func(appName string, apiError error) string {
 		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. ApiError was: %s", appName, apiError)
 	}
-	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
-		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
+	createPipelineJobSuccessMessage = func(jobName, appName, gitRefs, gitRefsType, commitID string) string {
+		return fmt.Sprintf("Pipeline job %s created for Radix application %s on %s %s for commit %s", jobName, appName, gitRefsType, gitRefs, commitID)
 	}
 )
 
@@ -147,7 +147,7 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 			return
 		}
 
-		writeSuccessResponse(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
+		writeSuccessResponse(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.GitRefsType, jobSummary.CommitID))
 
 	case *github.PingEvent:
 		// sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
