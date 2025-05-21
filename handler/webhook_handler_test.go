@@ -502,7 +502,7 @@ func (s *handlerTestSuite) Test_PushEventCorrectSecret() {
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
 	require.NoError(s.T(), err)
-	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.GitRefsType, jobSummary.CommitID), res.Message)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, "branch", jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
 
@@ -528,16 +528,16 @@ func (s *handlerTestSuite) Test_PushEventWithRefDeleted() {
 }
 
 func Test_GetBranch_RemovesRefsHead(t *testing.T) {
-	gitRefs, gitRefsType := getGitRefs(&github.PushEvent{Ref: strPtr("refs/tags/v1.0.2")})
+	gitRefs, gitRefsType := getGitRefWithType(&github.PushEvent{Ref: strPtr("refs/tags/v1.0.2")})
 	assert.Equal(t, "v1.0.2", gitRefs)
 	assert.Equal(t, "tags", gitRefsType)
-	gitRefs, gitRefsType = getGitRefs(&github.PushEvent{Ref: strPtr("refs/heads/master")})
+	gitRefs, gitRefsType = getGitRefWithType(&github.PushEvent{Ref: strPtr("refs/heads/master")})
 	assert.Equal(t, "master", gitRefs)
 	assert.Equal(t, "heads", gitRefsType)
-	gitRefs, gitRefsType = getGitRefs(&github.PushEvent{Ref: strPtr("refs/heads/feature/RA-326-TestBranch")})
+	gitRefs, gitRefsType = getGitRefWithType(&github.PushEvent{Ref: strPtr("refs/heads/feature/RA-326-TestBranch")})
 	assert.Equal(t, "feature/RA-326-TestBranch", gitRefs)
 	assert.Equal(t, "heads", gitRefsType)
-	gitRefs, gitRefsType = getGitRefs(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")})
+	gitRefs, gitRefsType = getGitRefWithType(&github.PushEvent{Ref: strPtr("refs/heads/hotfix/api/refs/heads/fix1")})
 	assert.Equal(t, "hotfix/api/refs/heads/fix1", gitRefs)
 	assert.Equal(t, "heads", gitRefsType)
 }
@@ -571,7 +571,7 @@ func (s *handlerTestSuite) Test_PushEventWithAnnotatedTag() {
 	var res response
 	err := json.Unmarshal(s.w.Body.Bytes(), &res)
 	require.NoError(s.T(), err)
-	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.GitRefsType, jobSummary.CommitID), res.Message)
+	s.Equal(createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, "branch", jobSummary.CommitID), res.Message)
 	s.ctrl.Finish()
 }
 

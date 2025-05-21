@@ -10,5 +10,5 @@ import (
 type APIServer interface {
 	ShowApplications(ctx context.Context, sshURL string) ([]*models.ApplicationSummary, error)
 	GetApplication(ctx context.Context, appName string) (*models.Application, error)
-	TriggerPipeline(ctx context.Context, appName, gitRefs, gitRefsType, commitID, triggeredBy string) (*models.JobSummary, error)
+	TriggerPipeline(ctx context.Context, appName, gitRef, gitRefType, commitID, triggeredBy string) (*models.JobSummary, error)
 }

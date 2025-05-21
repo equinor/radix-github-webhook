@@ -20,9 +20,19 @@ type PipelineParameters struct {
 	// example: 4faca8595c5283a9d0f17a623b9255a0d9866a2e
 	TriggeredBy string `json:"triggeredBy"`
 
-	// GitRefsType A target of the git event when the pipeline job is triggered by a GitHub event
-	// via the Radix GitHUb webhook: branch or tag (for refs/heads) or tag (for refs/tags), otherwise it is empty
+	// GitRef Branch or tag to build from
 	//
 	// required: false
-	GitRefsType string `json:"gitRefsType,omitempty"`
+	// example: master
+	GitRef string `json:"gitRef,omitempty"`
+
+	// GitRefType When the pipeline job should be built from branch or tag specified in GitRef:
+	// - branch
+	// - tag
+	// - <empty> - either branch or tag
+	//
+	// required false
+	// enum: branch,tag,""
+	// example: "branch"
+	GitRefType string `json:"gitRefType,omitempty"`
 }
