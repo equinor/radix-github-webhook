@@ -36,6 +36,7 @@ docker-build: $(addsuffix -image,$(IMAGES))
 docker-push: $(addsuffix -push,$(IMAGES))
 
 %-push:
+	az acr login --name $(DOCKER_REGISTRY)
 	docker push $(DOCKER_REGISTRY)/$*:$(IMAGE_TAG)
 
 .PHONY: deploy

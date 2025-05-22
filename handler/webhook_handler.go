@@ -136,7 +136,7 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 		}
 
 		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, gitRef, gitRefType, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, gitRef, getApiGitRefType(gitRefType), commitID, triggeredBy)
+		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, gitRef, gitRefType, commitID, triggeredBy)
 		if err != nil {
 			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
 				writeSuccessResponse(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
@@ -268,7 +268,7 @@ func getGitRefWithType(pushEvent *github.PushEvent) (string, string) {
 	ref := strings.Split(*pushEvent.Ref, "/")
 	gitRef := strings.Join(ref[2:], "/") // Remove refs/heads from ref
 	gitRefType := ref[1]
-	return gitRef, gitRefType
+	return gitRef, getApiGitRefType(gitRefType)
 }
 
 func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
