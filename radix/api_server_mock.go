@@ -66,16 +66,16 @@ func (mr *MockAPIServerMockRecorder) ShowApplications(ctx, sshURL interface{}) *
 }
 
 // TriggerPipeline mocks base method.
-func (m *MockAPIServer) TriggerPipeline(ctx context.Context, appName, branch, commitID, triggeredBy string) (*models.JobSummary, error) {
+func (m *MockAPIServer) TriggerPipeline(ctx context.Context, appName, gitRef, gitRefType, commitID, triggeredBy string) (*models.JobSummary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TriggerPipeline", ctx, appName, branch, commitID, triggeredBy)
+	ret := m.ctrl.Call(m, "TriggerPipeline", ctx, appName, gitRef, gitRefType, commitID, triggeredBy)
 	ret0, _ := ret[0].(*models.JobSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TriggerPipeline indicates an expected call of TriggerPipeline.
-func (mr *MockAPIServerMockRecorder) TriggerPipeline(ctx, appName, branch, commitID, triggeredBy interface{}) *gomock.Call {
+func (mr *MockAPIServerMockRecorder) TriggerPipeline(ctx, appName, gitRef, gitRefType, commitID, triggeredBy interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerPipeline", reflect.TypeOf((*MockAPIServer)(nil).TriggerPipeline), ctx, appName, branch, commitID, triggeredBy)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerPipeline", reflect.TypeOf((*MockAPIServer)(nil).TriggerPipeline), ctx, appName, gitRef, gitRefType, commitID, triggeredBy)
 }
