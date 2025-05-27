@@ -42,8 +42,8 @@ var (
 	createPipelineJobErrorMessage = func(appName string, apiError error) string {
 		return fmt.Sprintf("Failed to create pipeline job for Radix application %s. ApiError was: %s", appName, apiError)
 	}
-	createPipelineJobSuccessMessage = func(jobName, appName, branch, commitID string) string {
-		return fmt.Sprintf("Pipeline job %s created for Radix application %s on branch %s for commit %s", jobName, appName, branch, commitID)
+	createPipelineJobSuccessMessage = func(jobName, appName, gitRefs, gitRefsType, commitID string) string {
+		return fmt.Sprintf("Pipeline job %s created for Radix application %s on %s %s for commit %s", jobName, appName, gitRefsType, gitRefs, commitID)
 	}
 )
 
@@ -116,12 +116,12 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 
 	switch e := payload.(type) {
 	case *github.PushEvent:
-		branch := getBranch(e)
+		gitRef, gitRefType := getGitRefWithType(e)
 		commitID := getCommitID(e)
 		sshURL := e.Repo.GetSSHURL()
 		triggeredBy := getPushTriggeredBy(e)
 
-		metrics.IncreasePushGithubEventTypeCounter(sshURL, branch, commitID)
+		metrics.IncreasePushGithubEventTypeCounter(sshURL, gitRef, gitRefType, commitID)
 
 		if isPushEventForRefDeletion(e) {
 			writeSuccessResponse(http.StatusAccepted, refDeletionPushEventUnsupportedMessage(*e.Ref))
@@ -135,19 +135,19 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 			return
 		}
 
-		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, branch, commitID, applicationSummary.Name)
-		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, branch, commitID, triggeredBy)
+		metrics.IncreasePushGithubEventTypeTriggerPipelineCounter(sshURL, gitRef, gitRefType, commitID, applicationSummary.Name)
+		jobSummary, err := wh.apiServer.TriggerPipeline(c.Request.Context(), applicationSummary.Name, gitRef, gitRefType, commitID, triggeredBy)
 		if err != nil {
 			if e, ok := err.(*radix.ApiError); ok && e.Code == 400 {
 				writeSuccessResponse(http.StatusAccepted, createPipelineJobErrorMessage(applicationSummary.Name, err))
 				return
 			}
-			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, branch, commitID)
+			metrics.IncreasePushGithubEventTypeFailedTriggerPipelineCounter(sshURL, gitRef, gitRefType, commitID)
 			writeErrorResponse(http.StatusBadRequest, errors.New(createPipelineJobErrorMessage(applicationSummary.Name, err)))
 			return
 		}
 
-		writeSuccessResponse(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.Branch, jobSummary.CommitID))
+		writeSuccessResponse(http.StatusOK, createPipelineJobSuccessMessage(jobSummary.Name, jobSummary.AppName, jobSummary.GetGitRefOrDefault(), jobSummary.GetGitRefTypeOrDefault(), jobSummary.CommitID))
 
 	case *github.PingEvent:
 		// sshURL := getSSHUrlFromPingURL(*e.Hook.URL)
@@ -168,6 +168,16 @@ func (wh *webhookHandler) HandleFunc(c *gin.Context) {
 		writeErrorResponse(http.StatusBadRequest, errors.New(unhandledEventTypeMessage(webhookEventType)))
 		return
 	}
+}
+
+func getApiGitRefType(gitRefsType string) string {
+	switch gitRefsType {
+	case "heads":
+		return "branch"
+	case "tags":
+		return "tag"
+	}
+	return ""
 }
 
 func getCommitID(e *github.PushEvent) string {
@@ -254,10 +264,11 @@ func getPushTriggeredBy(pushEvent *github.PushEvent) string {
 	return ""
 }
 
-func getBranch(pushEvent *github.PushEvent) string {
-	// Remove refs/heads from ref
+func getGitRefWithType(pushEvent *github.PushEvent) (string, string) {
 	ref := strings.Split(*pushEvent.Ref, "/")
-	return strings.Join(ref[2:], "/")
+	gitRef := strings.Join(ref[2:], "/") // Remove refs/heads from ref
+	gitRefType := ref[1]
+	return gitRef, getApiGitRefType(gitRefType)
 }
 
 func isPushEventForRefDeletion(pushEvent *github.PushEvent) bool {
