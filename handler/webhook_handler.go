@@ -13,7 +13,7 @@ import (
 	"github.com/equinor/radix-github-webhook/models"
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/gin-gonic/gin"
-	"github.com/google/go-github/v60/github"
+	"github.com/google/go-github/v72/github"
 	"github.com/rs/zerolog"
 )
 

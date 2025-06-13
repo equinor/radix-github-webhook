@@ -15,7 +15,7 @@ import (
 	"github.com/equinor/radix-github-webhook/radix"
 	"github.com/equinor/radix-github-webhook/router"
 	"github.com/golang/mock/gomock"
-	"github.com/google/go-github/v60/github"
+	"github.com/google/go-github/v72/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
