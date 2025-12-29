@@ -117,7 +117,7 @@ func (api *APIServerStub) makeRequestWithBody(ctx context.Context, method, url s
 }
 
 func readBody(resp *http.Response) ([]byte, error) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("invalid response: %w", err)
