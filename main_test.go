@@ -13,9 +13,9 @@ func Test_get_api_service_endpoint_format(t *testing.T) {
 	clusterName := "weekly-11"
 	dnsZone := "dev.radix.equinor.com"
 
-	os.Setenv("API_SERVER_ENDPOINT_PREFIX", apiPrefix)
-	os.Setenv("RADIX_CLUSTERNAME", clusterName)
-	os.Setenv("RADIX_DNS_ZONE", dnsZone)
+	_ = os.Setenv("API_SERVER_ENDPOINT_PREFIX", apiPrefix)
+	_ = os.Setenv("RADIX_CLUSTERNAME", clusterName)
+	_ = os.Setenv("RADIX_DNS_ZONE", dnsZone)
 
 	url := getAPIServerEndpoint()
 
