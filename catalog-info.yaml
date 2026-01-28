@@ -2,9 +2,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: radix-github-webhook
+  title: Radix GitHub Webhook
+  description: "Support GitHub Webhook to trigger pipeline build through the API server"
   annotations:
     github.com/project-slug: equinor/radix-github-webhook
 spec:
-  type: other
-  lifecycle: unknown
+  type: service
+  lifecycle: production
   owner: omnia-radix
+  system: Radix
