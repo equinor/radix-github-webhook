@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	models "github.com/equinor/radix-github-webhook/models"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAPIServer is a mock of APIServer interface.
