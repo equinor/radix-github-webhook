@@ -42,12 +42,20 @@ docker-push: $(addsuffix -push,$(IMAGES))
 .PHONY: deploy
 deploy: docker-build docker-push
 
+.PHONY: radixconfigs
+radixconfigs:
+	ENV=qa envsubst < radixconfig.tpl.yaml > radixconfig.dev.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c2.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c3.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.platform.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.playground.yaml
+
 .PHONY: mocks
 mocks: bootstrap
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
 
 .PHONY: generate
-generate: mocks
+generate: mocks radixconfigs
 
 .PHONY: verify-generate
 verify-generate: generate
@@ -59,7 +67,7 @@ HAS_MOCKGEN       := $(shell command -v mockgen;)
 .PHONY: bootstrap
 bootstrap:
 ifndef HAS_GOLANGCI_LINT
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.2
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
 endif
 ifndef HAS_MOCKGEN
 	go install go.uber.org/mock/mockgen@v0.6.0
