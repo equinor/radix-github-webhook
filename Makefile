@@ -44,7 +44,6 @@ deploy: docker-build docker-push
 
 .PHONY: radixconfigs
 radixconfigs:
-	# radix-id-vulnerability-scan-reader-<env>
 	ENV=qa envsubst < radixconfig.tpl.yaml > radixconfig.dev.yaml
 	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c2.yaml
 	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c3.yaml
