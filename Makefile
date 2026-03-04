@@ -42,12 +42,21 @@ docker-push: $(addsuffix -push,$(IMAGES))
 .PHONY: deploy
 deploy: docker-build docker-push
 
+.PHONY: radixconfigs
+radixconfigs:
+	# radix-id-vulnerability-scan-reader-<env>
+	ENV=qa envsubst < radixconfig.tpl.yaml > radixconfig.dev.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c2.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.c3.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.platform.yaml
+	ENV=prod envsubst < radixconfig.tpl.yaml > radixconfig.playground.yaml
+
 .PHONY: mocks
 mocks: bootstrap
 	mockgen -source ./radix/api_server.go -destination ./radix/api_server_mock.go -package radix
 
 .PHONY: generate
-generate: mocks
+generate: mocks radixconfigs
 
 .PHONY: verify-generate
 verify-generate: generate

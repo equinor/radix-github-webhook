@@ -1,0 +1,68 @@
+apiVersion: radix.equinor.com/v1
+kind: RadixApplication
+metadata:
+  name: radix-github-webhook
+spec:
+  build:
+    useBuildKit: true
+  environments:
+    - name: prod
+      build:
+        from: release
+    - name: qa
+      build:
+        from: master
+  components:
+    - name: "webhook"
+      readOnlyFileSystem: true
+      src: "."
+      dockerfileName: "Dockerfile"
+      ports:
+        - name: http
+          port: 3001
+        - name: metrics
+          port: 9090
+      publicPort: http
+      runtime:
+        architecture: arm64
+      monitoring: true
+      monitoringConfig:
+        portName: metrics
+      variables:
+        LOG_LEVEL: info
+        LOG_PRETTY: "false"
+        GIN_MODE: "release"
+      environmentConfig:
+        - environment: qa
+          variables:
+            API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-qa"
+          resources:
+            requests:
+              memory: "30Mi"
+              cpu: "10m"
+            limits:
+              cpu: "1000m"
+          horizontalScaling:
+            maxReplicas: 1
+            minReplicas: 0
+            triggers:
+              - name: cron
+                cron:
+                  timezone: Europe/Oslo
+                  start: 0 7 * * 1-5 # 07:00 Monday - Friday
+                  end: 0 17 * * 1-5 # 17:00 Monday - Friday
+                  desiredReplicas: 1
+        - environment: prod
+          replicas: 2
+          variables:
+            API_SERVER_ENDPOINT_PREFIX: "https://server-radix-api-prod"
+          resources:
+            requests:
+              memory: "75Mi"
+              cpu: "10m"
+            limits:
+              cpu: "1000m"
+  dnsAlias:
+    - alias: webhook
+      environment: "prod"
+      component: webhook
