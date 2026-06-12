@@ -1,6 +1,7 @@
-**PROD** ![qa](https://api.radix.equinor.com/api/v1/applications/radix-github-webhook/environments/prod/buildstatus)  **QA** ![qa](https://api.radix.equinor.com/api/v1/applications/radix-github-webhook/environments/qa/buildstatus)  [![SCM Compliance](https://scm-compliance-api.radix.equinor.com/repos/equinor/radix-github-webhook/badge)](https://developer.equinor.com/governance/scm-policy/)
-
 # Radix GitHub Webhook
+
+> [!IMPORTANT]  
+> **Update , June 2026:** This repository is no longer maintained. Code is merged into api-server in the [radix-operator](https://github.com/equinor/radix-operator) repository.
 
 Support GitHub Webhook to trigger pipeline build through the API server
 
